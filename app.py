@@ -3,30 +3,35 @@ from modules.mineracao.ml_api import buscar_produtos_tendencia
 from modules.afiliacao.gerador_links import gerar_link_ml
 from modules.conteudo.editor_video import baixar_midia, criar_video_reels
 from modules.conteudo.locucao import gerar_audio_narracao
+import sys
 
 def iniciar():
-    print("=== INICIANDO PROCESSAMENTO NO RENDER ===\n")
-    nicho_teste = "smartwatch" 
-    
-    produtos = buscar_produtos_tendencia(nicho_teste)
-    
-    if not produtos:
-        print("Nenhum produto aprovado para gerar vídeo.")
-        return
-
-    for p in produtos:
-        # Gera link e mídias
-        link_comissao = gerar_link_ml(p['url_original'])
-        imagens = baixar_midia(p)
-        audio = gerar_audio_narracao(p)
+    try:
+        print("--- [BOT] Buscando produtos... ---")
+        produtos = buscar_produtos_tendencia("smartwatch")
         
-        # Cria o vídeo final
-        if imagens:
-            video_gerado = criar_video_reels(imagens, caminho_audio=audio)
-            print(f"Processamento concluído para: {p['titulo']}")
-            # Interrompemos aqui para o teste entregar apenas um vídeo
-            break 
+        if not produtos:
+            print("--- [BOT] Nenhum produto encontrado ou aprovado ---")
+            return
 
-if __name__ == "__main__":
-    iniciar()
+        p = produtos[0]
+        print(f"--- [BOT] Processando: {p['titulo']} ---")
+        
+        link = gerar_link_ml(p['url_original'])
+        imagens = baixar_midia(p)
+        
+        if not imagens:
+            print("--- [BOT] Falha ao baixar imagens reais ---")
+            return
+            
+        audio = gerar_audio_narracao(p)
+        print("--- [BOT] Iniciando montagem do vídeo... ---")
+        
+        video = criar_video_reels(imagens, caminho_audio=audio)
+        print(f"--- [BOT] VÍDEO PRONTO: {video} ---")
+        
+    except Exception as e:
+        print(f"--- [ERRO EM iniciar()] {e} ---")
+        # Força a exibição do erro no log do Render
+        sys.stdout.flush() 
 
