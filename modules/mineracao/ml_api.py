@@ -1,81 +1,58 @@
 # modules/mineracao/ml_api.py
-from curl_cffi import requests
-from bs4 import BeautifulSoup
+import requests
 import re
+from bs4 import BeautifulSoup
 from modules.mineracao.validador import produto_e_valido
 
 def buscar_produtos_tendencia(termo_busca):
-    print(f"Iniciando mineração profissional (Imitação de TLS Chrome) para: '{termo_busca}'...")
+    print(f"Iniciando extração real para: {termo_busca}")
+    url_busca = f"https://lista.mercadolivre.com.br/{termo_busca.replace(' ', '-')}"
     
-    termo_formatado = termo_busca.replace(" ", "-")
-    url_scraping = f"https://lista.mercadolivre.com.br/{termo_formatado}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     
-    # A curl_cffi usa o parâmetro 'impersonate' para copiar exatamente o comportamento do Chrome
     try:
-        response = requests.get(
-            url_scraping, 
-            impersonate="chrome110", # Aqui está o segredo para furar o WAF
-            timeout=30
-        )
+        res = requests.get(url_busca, headers=headers, timeout=15)
+        soup = BeautifulSoup(res.text, 'html.parser')
         
-        if response.status_code != 200:
-            print(f"Falha no acesso inicial. Status: {response.status_code}")
-            return []
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-        links_unicos = []
+        links = []
+        for a in soup.find_all('a', href=True):
+            if 'MLB-' in a['href'] and 'produto.mercadolivre' in a['href']:
+                url = a['href'].split('#')[0].split('?')[0]
+                if url not in links: links.append(url)
         
-        for a_tag in soup.find_all('a', href=True):
-            href = a_tag['href']
-            if 'produto.mercadolivre.com.br/MLB' in href or 'mercadolivre.com.br/p/MLB' in href:
-                url_limpa = href.split('?')[0].split('#')[0]
-                if url_limpa not in links_unicos:
-                    links_unicos.append(url_limpa)
-
-        if not links_unicos:
-            print("Página carregada, mas nenhum link identificado. O layout pode ter mudado.")
-            return []
-
-        print(f"Sucesso! {len(links_unicos)} links capturados. Analisando mídias...")
-        produtos_aprovados = []
-
-        for url_produto in links_unicos:
-            res_item = requests.get(url_produto, impersonate="chrome110")
-            if res_item.status_code != 200:
-                continue
-
-            html = res_item.text
-            item_soup = BeautifulSoup(html, 'html.parser')
-
-            # Extração de dados
-            titulo_tag = item_soup.find('h1', class_='ui-pdp-title')
-            titulo = titulo_tag.text.strip() if titulo_tag else "Produto"
-
-            preco_tag = item_soup.find('meta', itemprop='price')
-            if not preco_tag: continue
-            preco = float(preco_tag['content'])
-
-            imagens = list(set(re.findall(r'https://http2\.mlstatic\.com/D_NQ_NP_2X_[\w\-]+\.(?:jpg|webp)', html)))
-            possui_video = 'video_id' in html or 'youtube.com/embed' in html
-
-            valido, motivo = produto_e_valido(preco, 4.8, possui_video, len(imagens))
-
+        for url_p in links[:5]: # Analisa os 5 primeiros para garantir qualidade
+            res_p = requests.get(url_p, headers=headers, timeout=15)
+            html = res_p.text
+            
+            # Extração de imagens de alta resolução (finais com _O.jpg ou _2X.jpg)
+            # Este padrão captura as imagens reais da galeria do vendedor
+            imagens = list(set(re.findall(r'https://http2\.mlstatic\.com/D_NQ_NP_[\w\-]+-O\.webp|https://http2\.mlstatic\.com/D_NQ_NP_2X_[\w\-]+\.jpg', html)))
+            
+            if len(imagens) < 3: continue
+            
+            # Captura de Preço e Título
+            titulo = re.search(r'<h1 class="ui-pdp-title">([^<]+)</h1>', html)
+            titulo = titulo.group(1).strip() if titulo else "Produto"
+            
+            preco_meta = re.search(r'<meta itemprop="price" content="([\d\.]+)"', html)
+            if not preco_meta: continue
+            preco = float(preco_meta.group(1))
+            
+            valido, _ = produto_e_valido(preco, 4.5, False, len(imagens))
+            
             if valido:
-                produtos_aprovados.append({
-                    "id": "MLB" + re.search(r'MLB-?(\d+)', url_produto).group(1),
+                print(f"[CONECTADO] {titulo}")
+                return [{
+                    "id": "MLB",
                     "titulo": titulo,
                     "preco": preco,
-                    "url_original": url_produto,
-                    "midia": {"possui_video": possui_video, "imagens_url": imagens}
-                })
-                print(f"[APROVADO] {titulo}")
-                break
-            else:
-                print(f"[REPROVADO] {titulo[:20]}... - {motivo}")
-
-        return produtos_aprovados
-
+                    "url_original": url_p,
+                    "midia": {"imagens_url": imagens}
+                }]
+        return []
     except Exception as e:
-        print(f"Erro crítico no motor de mineração: {e}")
+        print(f"Erro na mineração: {e}")
         return []
 

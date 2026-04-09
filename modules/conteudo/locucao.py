@@ -3,48 +3,32 @@ import asyncio
 import edge_tts
 import os
 
-def gerar_copy(produto, link_afiliado):
-    """Gera o texto persuasivo para a legenda da postagem."""
-    texto = (
-        f"🚨 ACHADINHO IMPERDÍVEL! 🚨\n\n"
-        f"📦 {produto['titulo']}\n"
-        f"💰 Por apenas: R$ {produto['preco']:.2f}\n\n"
-        f"👉 Garanta o seu com segurança no link abaixo:\n"
-        f"🔗 {link_afiliado}\n\n"
-        f"⏳ Promoção por tempo limitado!"
-    )
-    return texto
-
-async def criar_audio_assincrono(texto_narracao, arquivo_saida):
-    """Comunica com a API da Microsoft. A voz 'FranciscaNeural' possui entonação excelente."""
-    comunicador = edge_tts.Communicate(texto_narracao, "pt-BR-FranciscaNeural", rate="+5%")
-    await comunicador.save(arquivo_saida)
+async def sintetizar_voz(texto, arquivo):
+    # 'Thalita' costuma soar mais natural para 'achadinhos' que o Antonio
+    # Reduzimos levemente a velocidade (rate) para evitar tom de robô apressado
+    communicate = edge_tts.Communicate(texto, "pt-BR-ThalitaNeural", rate="-5%", pitch="+0Hz")
+    await communicate.save(arquivo)
 
 def gerar_audio_narracao(produto, pasta_destino="downloads"):
-    """Cria um roteiro natural e gera o arquivo de áudio (.mp3)."""
     os.makedirs(pasta_destino, exist_ok=True)
     arquivo_mp3 = os.path.join(pasta_destino, "narracao.mp3")
     
-    # Isola apenas a parte principal do título para uma leitura fluida
-    titulo_curto = produto['titulo'].split(" - ")[0].split(",")[0][:40] 
+    nome_limpo = produto['titulo'].split(" - ")[0][:40]
+    preco = str(produto['preco']).replace(".", ",")
     
-    # Formata o preço para garantir a pronúncia correta da IA
-    preco_formatado = str(produto['preco']).replace('.', ',')
-    
-    # Roteiro otimizado para soar como recomendação humana
+    # Roteiro com pontuação proposital para pausas naturais
     roteiro = (
-        "Gente, eu não estou acreditando nesse achado. "
-        f"Olha só esse {titulo_curto}. "
-        f"Ele está saindo por apenas {preco_formatado} reais. "
-        "A qualidade é muito boa pelo preço. "
-        "Eu deixei o link promocional na descrição para quem quiser aproveitar antes que acabe."
+        f"Gente... olha só esse achado que eu acabei de encontrar! "
+        f"É o {nome_limpo}. "
+        f"Ele tá com um preço incrível... apenas {preco} reais. "
+        "A qualidade é surpreendente e entrega super rápido. "
+        "O link com desconto tá aqui na descrição, aproveita logo antes que o estoque acabe!"
     )
     
-    print("\nGerando áudio da narração realista...")
-    asyncio.run(criar_audio_assincrono(roteiro, arquivo_mp3))
-    
-    if os.path.exists(arquivo_mp3):
-        print(f" -> Áudio gerado com sucesso: {arquivo_mp3}")
-        return arquivo_mp3
-    return None
+    print("Sintetizando locução humanizada...")
+    asyncio.run(sintetizar_voz(roteiro, arquivo_mp3))
+    return arquivo_mp3
+
+def gerar_copy(produto, link):
+    return f"🔥 {produto['titulo']}\n\n💰 R$ {produto['preco']}\n🔗 {link}"
 
