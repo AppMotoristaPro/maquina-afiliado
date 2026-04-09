@@ -10,27 +10,23 @@ VIDEO_PATH = "reels_final.mp4"
 
 @app.route('/')
 def home():
-    return "Máquina de Afiliados Ativa. Verifique os logs para ver o progresso!"
+    if os.path.exists(VIDEO_PATH):
+        return "Vídeo pronto! Vá para /video para baixar."
+    return "Máquina processando o vídeo... Acompanhe os logs do Render."
 
 @app.route('/video')
 def download_video():
     if os.path.exists(VIDEO_PATH) and os.path.getsize(VIDEO_PATH) > 0:
         return send_file(VIDEO_PATH, as_attachment=True)
-    return "Vídeo ainda não processado. Aguarde a mensagem 'VÍDEO PRONTO' nos logs.", 404
+    return "O vídeo ainda está sendo gerado. Tente novamente em 2 minutos.", 404
 
 def loop_principal():
-    # Dá tempo para o Render registrar que o serviço subiu (evita restarts)
-    time.sleep(20)
-    print("--- [SISTEMA] Iniciando ciclo de produção... ---")
+    time.sleep(15)
     if os.path.exists(VIDEO_PATH):
         os.remove(VIDEO_PATH)
-    
-    try:
-        iniciar()
-    except Exception as e:
-        print(f"--- [ERRO CRÍTICO] {e} ---")
+    print("--- [SISTEMA] Iniciando ciclo... ---")
+    iniciar()
 
-# Dispara o robô em background
 threading.Thread(target=loop_principal, daemon=True).start()
 
 if __name__ == "__main__":
