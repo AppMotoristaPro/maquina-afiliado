@@ -1,0 +1,11 @@
+# Pastas temporárias
+downloads/
+__pycache__/
+*.mp4
+*.mp3
+
+# Arquivos de credenciais e configuração
+tokens.json
+config.py
+.env
+
