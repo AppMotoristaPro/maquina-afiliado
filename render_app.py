@@ -10,23 +10,28 @@ VIDEO_PATH = "reels_final.mp4"
 
 @app.route('/')
 def home():
-    return "Máquina de Afiliados Online. Verifique os logs do Render para o progresso."
+    return "Máquina de Afiliados Ativa. Verifique os logs para ver o progresso!"
 
 @app.route('/video')
 def download_video():
     if os.path.exists(VIDEO_PATH) and os.path.getsize(VIDEO_PATH) > 0:
         return send_file(VIDEO_PATH, as_attachment=True)
-    return "Vídeo ainda não disponível. Verifique os logs.", 404
+    return "Vídeo ainda não processado. Aguarde a mensagem 'VÍDEO PRONTO' nos logs.", 404
 
-def executar_robo():
-    print("--- [SISTEMA] Aguardando estabilização do servidor... ---")
+def loop_principal():
+    # Dá tempo para o Render registrar que o serviço subiu (evita restarts)
+    time.sleep(20)
+    print("--- [SISTEMA] Iniciando ciclo de produção... ---")
     if os.path.exists(VIDEO_PATH):
         os.remove(VIDEO_PATH)
-    time.sleep(15) 
-    iniciar()
+    
+    try:
+        iniciar()
+    except Exception as e:
+        print(f"--- [ERRO CRÍTICO] {e} ---")
 
-# Thread disparada pelo Gunicorn
-threading.Thread(target=executar_robo, daemon=True).start()
+# Dispara o robô em background
+threading.Thread(target=loop_principal, daemon=True).start()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
