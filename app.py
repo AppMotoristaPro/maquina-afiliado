@@ -3,29 +3,47 @@ from modules.mineracao.ml_api import buscar_produtos_tendencia
 from modules.afiliacao.gerador_links import gerar_link_ml
 from modules.conteudo.editor_video import baixar_midia, criar_video_reels
 from modules.conteudo.locucao import gerar_audio_narracao
-import os
+import json
 
-def iniciar():
-    print("=== [SISTEMA] INICIANDO MODO DE TESTE TOTAL ===")
+def iniciar(logger):
+    logger("=== [SISTEMA] INICIANDO MODO DE TESTE TOTAL ===")
     
-    # Use um termo bem comum para garantir resultados
-    produtos = buscar_produtos_tendencia("relogio")
+    produtos = buscar_produtos_tendencia("smartwatch")
     
     if not produtos:
-        print("=== [SISTEMA] ERRO: O Mercado Livre bloqueou a leitura do HTML no Render. ===")
+        logger("=== [SISTEMA] ERRO: O Mercado Livre não retornou produtos válidos ===")
         return
 
     p = produtos[0]
-    link = gerar_link_ml(p['url_original'])
+    logger(f"--- [MINERADOR] PRODUTO APROVADO: {p['titulo'][:30]}... ---")
     
-    print(f"=== [SISTEMA] Baixando mídias de: {p['titulo']} ===")
+    # Gera o link
+    link_afiliado = gerar_link_ml(p['url_original'])
+    
+    # Cria a copy
+    preco_formatado = str(p['preco']).replace(".", ",")
+    copy_post = f"🚨 Achado imperdível!\n\n{p['titulo']}\n\nDeixe um 'EU QUERO' nos comentários que te envio o link no Direct, ou acesse pelo link da bio!\n\n🔗 Link: {link_afiliado}"
+    
+    # Salva para o Dashboard ler
+    info_dict = {"titulo": p['titulo'], "link": link_afiliado, "descricao": copy_post}
+    with open("produto_info.json", "w", encoding="utf-8") as f:
+        json.dump(info_dict, f)
+
+    logger("=== [SISTEMA] Baixando imagens do produto... ===")
     imagens = baixar_midia(p)
     
     if imagens:
+        logger("--- [VOZ] Gerando narração... ---")
         audio = gerar_audio_narracao(p)
-        print("=== [SISTEMA] Iniciando renderização do vídeo... ===")
-        video_gerado = criar_video_reels(imagens, caminho_audio=audio)
-        print(f"=== [SISTEMA] PROCESSO FINALIZADO: {video_gerado} ===")
+        
+        logger("=== [SISTEMA] Montando vídeo com MÚSICA e LEGENDA... ===")
+        video_gerado = criar_video_reels(caminhos_imagens=imagens, caminho_audio=audio, logger=logger)
+        
+        if video_gerado:
+            logger("=== [SISTEMA] VÍDEO PRONTO! Acesse a página /video ===")
+        else:
+            logger("=== [SISTEMA] Falha na renderização do vídeo ===")
     else:
-        print("=== [SISTEMA] ERRO: Não foi possível baixar as fotos capturadas. ===")
+        logger("=== [SISTEMA] Erro no download das fotos ===")
+
 

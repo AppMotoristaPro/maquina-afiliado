@@ -1,31 +1,103 @@
 # render_app.py
-from flask import Flask, send_file
+from flask import Flask, send_file, render_template_string
 import threading
 import os
 import time
+import json
 from app import iniciar
 
 app = Flask(__name__)
 VIDEO_PATH = "reels_final.mp4"
+LOG_PATH = "process_log.txt"
+INFO_PATH = "produto_info.json"
+
+def escrever_log(mensagem):
+    """Escreve o log no terminal e no arquivo para o site ler"""
+    print(mensagem)
+    with open(LOG_PATH, "a", encoding="utf-8") as f:
+        f.write(mensagem + "\n")
 
 @app.route('/')
 def home():
-    if os.path.exists(VIDEO_PATH):
-        return "Vídeo pronto! Vá para /video para baixar."
-    return "Máquina processando o vídeo... Acompanhe os logs do Render."
+    # Lê os logs; a página se atualiza sozinha a cada 5 segundos
+    logs = "Aguardando inicialização do sistema..."
+    if os.path.exists(LOG_PATH):
+        with open(LOG_PATH, "r", encoding="utf-8") as f:
+            logs = f.read()
+            
+    html = """
+    <html>
+    <head>
+        <meta http-equiv="refresh" content="5">
+        <meta charset="utf-8">
+        <title>Vórtice Afiliados | Painel</title>
+        <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: #fff; padding: 20px; }
+            .log-box { background: #000; color: #0f0; padding: 15px; height: 350px; overflow-y: scroll; font-family: monospace; white-space: pre-wrap; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px; }
+            .btn { display: inline-block; padding: 15px 30px; background: #007bff; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px; transition: 0.3s; }
+            .btn:hover { background: #0056b3; }
+        </style>
+    </head>
+    <body>
+        <h2>🤖 Vórtice Bot - Status Ao Vivo</h2>
+        <div class="log-box">{{ logs }}</div>
+        <a href="/video" class="btn">▶ Acessar Vídeo e Link de Afiliado</a>
+    </body>
+    </html>
+    """
+    return render_template_string(html, logs=logs)
 
 @app.route('/video')
-def download_video():
-    if os.path.exists(VIDEO_PATH) and os.path.getsize(VIDEO_PATH) > 0:
-        return send_file(VIDEO_PATH, as_attachment=True)
-    return "O vídeo ainda está sendo gerado. Tente novamente em 2 minutos.", 404
+def video_page():
+    if not os.path.exists(VIDEO_PATH) or not os.path.exists(INFO_PATH):
+        return "<h2 style='font-family: Arial; text-align: center; margin-top: 50px;'>O vídeo ainda não está pronto. Acompanhe os logs!</h2>", 404
+        
+    with open(INFO_PATH, "r", encoding="utf-8") as f:
+        info = json.load(f)
+        
+    html = """
+    <html>
+    <head><meta charset="utf-8"><title>Seu Reels</title></head>
+    <body style="font-family: Arial; background: #f4f4f9; padding: 20px; max-width: 500px; margin: auto; text-align: center;">
+        <h3 style="color: #333;">{{ info.titulo }}</h3>
+        
+        <video width="100%" controls style="border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); margin-bottom: 20px; background: #000;">
+            <source src="/download" type="video/mp4">
+        </video>
+        
+        <a href="/download" style="display: block; padding: 15px; background: #28a745; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold; margin-bottom: 20px;">⬇ Baixar Vídeo para o Celular</a>
+        
+        <div style="background: #fff; padding: 20px; border-radius: 8px; text-align: left; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+            <h4 style="margin-top: 0; color: #007bff;">🔗 Seu Link de Afiliado</h4>
+            <input type="text" value="{{ info.link }}" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 15px;" readonly>
+            
+            <h4 style="color: #ff5722;">📝 Descrição para Copiar</h4>
+            <textarea style="width: 100%; height: 120px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;" readonly>{{ info.descricao }}</textarea>
+        </div>
+        
+        <a href="/" style="display: inline-block; margin-top: 20px; color: #666; text-decoration: none;">← Voltar ao Painel</a>
+    </body>
+    </html>
+    """
+    return render_template_string(html, info=info)
+
+@app.route('/download')
+def download_file():
+    return send_file(VIDEO_PATH, as_attachment=True)
 
 def loop_principal():
-    time.sleep(15)
-    if os.path.exists(VIDEO_PATH):
-        os.remove(VIDEO_PATH)
-    print("--- [SISTEMA] Iniciando ciclo... ---")
-    iniciar()
+    time.sleep(10)
+    # Limpa log antigo
+    open(LOG_PATH, "w").close() 
+    escrever_log("--- [SISTEMA] Iniciando novo ciclo do robô ---")
+    
+    if os.path.exists(VIDEO_PATH): os.remove(VIDEO_PATH)
+    if os.path.exists(INFO_PATH): os.remove(INFO_PATH)
+    
+    try:
+        iniciar(escrever_log) # Passa o sistema de log para o app
+    except Exception as e:
+        escrever_log(f"--- [ERRO CRÍTICO] {e} ---")
 
 threading.Thread(target=loop_principal, daemon=True).start()
 
