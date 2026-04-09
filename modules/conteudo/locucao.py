@@ -4,25 +4,28 @@ import edge_tts
 import os
 
 async def sintetizar(texto, arquivo):
-    # Francisca tem uma entonação mais amigável. 
-    # Diminuir o 'rate' deixa a fala mais pausada e menos robótica.
-    comunicador = edge_tts.Communicate(texto, "pt-BR-FranciscaNeural", rate="-10%", pitch="+0Hz")
+    # ThalitaNeural é mais expressiva para vídeos de vendas
+    comunicador = edge_tts.Communicate(texto, "pt-BR-ThalitaNeural", rate="+5%", pitch="+0Hz")
     await comunicador.save(arquivo)
 
 def gerar_audio_narracao(produto, pasta_destino="downloads"):
     os.makedirs(pasta_destino, exist_ok=True)
     arquivo_mp3 = os.path.join(pasta_destino, "narracao.mp3")
     
+    # Nome curto para não ficar cansativo
+    nome_produto = produto['titulo'].split(" - ")[0][:40]
     preco = str(produto['preco']).replace(".", ",")
-    # Roteiro com pontuação para pausas naturais (vírgulas e reticências)
+    
+    # Roteiro com entonação de "Dica de Amigo"
     roteiro = (
-        f"Gente... Olha só que achado incrível. "
-        f"Esse {produto['titulo'][:40]}... "
-        f"Tá saindo por apenas {preco} reais. "
-        "Aproveita que o estoque acaba rápido. O link com desconto tá aqui na descrição!"
+        f"Gente, para tudo! Olha esse achado que eu acabei de encontrar. "
+        f"É esse {nome_produto}. "
+        f"O preço tá simplesmente bizarro... Só {preco} reais! "
+        "A qualidade é muito superior ao que eu esperava. "
+        "Se você quer um desses, corre... O link com desconto tá na descrição antes que acabe o estoque!"
     )
     
-    print("Gerando narração humanizada...")
+    print(f"--- [VOZ] Gerando locução para: {nome_produto} ---")
     asyncio.run(sintetizar(roteiro, arquivo_mp3))
     return arquivo_mp3
 
