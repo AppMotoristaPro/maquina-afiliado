@@ -10,4 +10,4 @@ QTD_MINIMA_IMAGENS = 5
 ML_BASE_URL = "https://api.mercadolibre.com"
 # --- Configurações de Afiliado ---
 AFILIADO_ID_ML = "igormikael" # Quando sua conta for aprovada, você coloca seu ID real aqui
-
+SCRAPER_API_KEY = "326e68b3d66804516e7233ac007a37f5"
