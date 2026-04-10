@@ -27,15 +27,19 @@ def garimpar_produtos():
                 if not galeria: continue
                 
                 titulo = soup_p.find('h1').text.strip() if soup_p.find('h1') else "Oferta"
-                preco_match = re.search(r'"price":\s*([\d\.]+)', rp.text)
-                preco = float(preco_match.group(1)) if preco_match else 0.0
                 
-                # Pegamos as 6 primeiras imagens (geralmente as fotos de estúdio)
-                # O filtro 'D_NQ_NP_[\w\-]+-F\.webp' foca em imagens de alta definição
+                # NOVIDADE: Pega TODOS os preços listados no HTML e extrai o menor (Preço Pix)
+                todos_precos_str = re.findall(r'"price":\s*([\d\.]+)', rp.text)
+                if not todos_precos_str:
+                    # Alternativa caso o Mercado Livre mude a classe
+                    todos_precos_str = re.findall(r'itemprop="price" content="([\d\.]+)"', rp.text)
+                
+                preco = min([float(p) for p in todos_precos_str]) if todos_precos_str else 0.0
+                
                 imgs = re.findall(r'https://http2\.mlstatic\.com/D_NQ_NP_[\w\-]+-O\.webp', str(galeria))
-                imgs = list(dict.fromkeys(imgs)) # Remove duplicatas mantendo a ordem
+                imgs = list(dict.fromkeys(imgs))
 
-                if len(imgs) >= 3:
+                if len(imgs) >= 3 and preco > 0:
                     resultados.append({
                         "titulo": titulo, "preco": preco, "url": url_p, "imagens": imgs[:6]
                     })

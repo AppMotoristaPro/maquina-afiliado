@@ -1,7 +1,14 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<div class="flex flex-col items-center mb-10">
+<div class="flex justify-center gap-4 mb-8">
+    <button class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md transition transform hover:-translate-y-1">Mercado Livre</button>
+    <button class="bg-slate-200 text-slate-400 px-6 py-2 rounded-lg font-bold cursor-not-allowed flex items-center gap-2" disabled>
+        Shopee <span class="bg-slate-300 text-slate-500 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">Em breve</span>
+    </button>
+</div>
+
+<div class="flex flex-col items-center mb-8" id="painel-garimpo">
     <h1 class="text-3xl font-extrabold text-slate-800 mb-2">Garimpo Automático</h1>
     <p class="text-slate-500 mb-6 text-center max-w-lg">O sistema trará os itens mais quentes de várias categorias. Clique na imagem para ver no Mercado Livre e pegar seu link.</p>
     
@@ -10,14 +17,19 @@
     </button>
 </div>
 
-<div class="bg-slate-900 p-4 rounded-xl font-mono text-sm text-green-400 h-24 overflow-y-auto mb-8 shadow-inner" id="logs">
-    Console pronto...
+<div id="progresso-container" class="hidden w-full max-w-xl mx-auto mb-10 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+    <div class="flex justify-between mb-2">
+      <span id="progresso-msg" class="text-sm font-bold text-blue-700">Iniciando sistema...</span>
+      <span id="progresso-pct" class="text-sm font-bold text-blue-700">0%</span>
+    </div>
+    <div class="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
+      <div id="progresso-bar" class="bg-gradient-to-r from-blue-500 to-indigo-600 h-4 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+    </div>
 </div>
 
 <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6"></div>
 
 <script>
-    // Recupera a vitrine da memória ao voltar do vídeo
     document.addEventListener("DOMContentLoaded", () => {
         const vitrineSalva = JSON.parse(localStorage.getItem('vitrineML')) || [];
         if(vitrineSalva.length > 0) renderGrid(vitrineSalva);
@@ -27,19 +39,14 @@
         const btn = document.getElementById('btnGarimpar');
         btn.innerText = "⏳ Aspirando categorias...";
         btn.disabled = true;
-        document.getElementById('logs').innerText = "Iniciando varredura no banco e no Mercado Livre...";
         
         try {
             const res = await fetch('/api/garimpar');
             const data = await res.json();
-            
-            // Salva na memória do navegador
             localStorage.setItem('vitrineML', JSON.stringify(data));
             renderGrid(data);
-            
-            document.getElementById('logs').innerText = `✅ Garimpo concluído! ${data.length} produtos encontrados.`;
         } catch (e) {
-            document.getElementById('logs').innerText = "❌ Erro ao garimpar. O Mercado Livre pode ter bloqueado a requisição.";
+            alert("Erro ao garimpar. O Mercado Livre pode ter bloqueado a requisição temporariamente.");
         }
         
         btn.innerText = "🎲 GARIMPAR NOVAMENTE";
@@ -75,13 +82,15 @@
         const link = prompt("PASSO 2:\nCole seu link de afiliado oficial (meli.la) para:\n" + p.titulo.substring(0, 30) + "...");
         if(!link) return;
 
-        // Remove o item da tela e da memória local para não oferecer de novo
+        // Limpa a tela e exibe a barra de progresso
+        document.getElementById('grid').innerHTML = '';
+        document.getElementById('painel-garimpo').classList.add('hidden');
+        document.getElementById('progresso-container').classList.remove('hidden');
+
+        // Atualiza a vitrine em background
         let salvos = JSON.parse(localStorage.getItem('vitrineML')) || [];
         salvos = salvos.filter(item => item.url !== p.url);
         localStorage.setItem('vitrineML', JSON.stringify(salvos));
-        renderGrid(salvos);
-
-        document.getElementById('logs').innerText = "Iniciando produção... Acompanhe os logs.";
         
         await fetch('/api/produzir', {
             method: 'POST',
@@ -89,16 +98,20 @@
             body: JSON.stringify({...p, link_afiliado: link})
         });
 
-        // Fica checando os logs até terminar
+        // Polling da barra de progresso
         const interval = setInterval(async () => {
-            const r = await fetch('/api/logs');
+            const r = await fetch('/api/progresso');
             const d = await r.json();
-            document.getElementById('logs').innerText = d.logs;
-            if(d.logs.includes("VÍDEO PRONTO")) {
+            
+            document.getElementById('progresso-bar').style.width = d.percent + '%';
+            document.getElementById('progresso-pct').innerText = d.percent + '%';
+            document.getElementById('progresso-msg').innerText = d.msg;
+            
+            if(d.msg === "VÍDEO PRONTO") {
                 clearInterval(interval);
                 window.location.href = '/video';
             }
-        }, 3000);
+        }, 1500);
     }
 </script>
 {% endblock %}

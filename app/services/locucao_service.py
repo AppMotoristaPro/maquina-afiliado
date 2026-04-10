@@ -1,25 +1,24 @@
 import asyncio
 import edge_tts
-import json
 import os
 
-async def gerar_voz_e_legenda(texto, path_audio, path_json):
-    # Usando a voz Francisca para um tom mais natural e menos robótico
+async def gerar_voz_e_legenda(texto, path_audio, path_vtt):
     communicate = edge_tts.Communicate(texto, "pt-BR-FranciscaNeural", rate="+10%")
-    subs = []
-    with open(path_audio, "wb") as f:
+    submaker = edge_tts.SubMaker()
+    
+    with open(path_audio, "wb") as f_audio:
         async for chunk in communicate.stream():
-            if chunk["type"] == "audio": f.write(chunk["data"])
+            if chunk["type"] == "audio":
+                f_audio.write(chunk["data"])
             elif chunk["type"] == "WordBoundary":
-                start = chunk["offset"] / 10000000.0
-                subs.append({"text": chunk["text"], "start": start, "end": start + (chunk["duration"]/10000000.0)})
-    with open(path_json, "w", encoding="utf-8") as f: json.dump(subs, f)
+                # O Submaker gera as legendas automaticamente com a quebra de tempo oficial
+                submaker.create_sub((chunk["offset"], chunk["duration"]), chunk["text"])
+                
+    with open(path_vtt, "w", encoding="utf-8") as f_vtt:
+        f_vtt.write(submaker.generate_subs())
 
 def executar_locucao(produto_titulo, preco):
     os.makedirs("downloads", exist_ok=True)
-    
-    # Criando uma "Copy" orgânica baseada no título
-    # Removemos termos muito técnicos do título para a fala
     titulo_limpo = produto_titulo.split(',')[0].split('-')[0].split('(')[0].strip()
     
     roteiro = (
@@ -29,7 +28,9 @@ def executar_locucao(produto_titulo, preco):
         f"Eu amei e tenho certeza que você também vai amar. O link oficial com desconto tá na Bio, corre lá!"
     )
     
-    p_audio, p_json = "downloads/voz.mp3", "downloads/leg.json"
-    asyncio.run(gerar_voz_e_legenda(roteiro, p_audio, p_json))
-    return p_audio, p_json
+    p_audio = "downloads/voz.mp3"
+    p_vtt = "downloads/legenda.vtt" # Agora é um formato de legenda oficial
+    asyncio.run(gerar_voz_e_legenda(roteiro, p_audio, p_vtt))
+    
+    return p_audio, p_vtt
 
