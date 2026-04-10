@@ -2,13 +2,29 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Máquina de Comissão</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>body { background: #0f172a; color: white; }</style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; }
+        .glass-header { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid #e2e8f0; }
+    </style>
 </head>
-<body class="p-5">
-    <div class="max-w-4xl mx-auto">
+<body class="min-h-screen flex flex-col">
+    <header class="glass-header sticky top-0 z-50 w-full px-6 py-4 shadow-sm mb-8">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <div class="text-2xl font-black text-blue-600 tracking-tight">🤖 Máquina de Comissão</div>
+            <nav class="flex gap-4 font-semibold text-sm">
+                <a href="/" class="text-slate-600 hover:text-blue-600 transition">Vitrine</a>
+                <a href="/historico" class="text-slate-600 hover:text-blue-600 transition">Histórico</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-5xl w-full mx-auto px-4 pb-12">
         {% block content %}{% endblock %}
-    </div>
+    </main>
 </body>
 </html>
+

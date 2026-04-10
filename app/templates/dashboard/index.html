@@ -1,41 +1,105 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1 class="text-3xl font-black text-blue-500 mb-5 text-center">🤖 MÁQUINA DE COMISSÃO</h1>
-<div class="flex gap-2 mb-10">
-    <input id="nicho" class="flex-1 p-3 rounded bg-slate-800 border border-slate-700" placeholder="Digite um nicho...">
-    <button onclick="buscar()" class="bg-blue-600 px-6 rounded font-bold">GARIMPAR</button>
+
+<div class="flex flex-col items-center mb-10">
+    <h1 class="text-3xl font-extrabold text-slate-800 mb-2">Garimpo Automático</h1>
+    <p class="text-slate-500 mb-6 text-center max-w-lg">O sistema trará os itens mais quentes de várias categorias. Clique na imagem para ver no Mercado Livre e pegar seu link.</p>
+    
+    <button onclick="buscar()" id="btnGarimpar" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-blue-600/30 transition transform hover:scale-105 text-lg">
+        🎲 GARIMPAR PRODUTOS AGORA
+    </button>
 </div>
-<div id="grid" class="grid grid-cols-2 gap-4 mb-10"></div>
-<div class="bg-black p-5 rounded font-mono text-green-500 h-40 overflow-y-auto" id="logs">Console pronto...</div>
+
+<div class="bg-slate-900 p-4 rounded-xl font-mono text-sm text-green-400 h-24 overflow-y-auto mb-8 shadow-inner" id="logs">
+    Console pronto...
+</div>
+
+<div id="grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6"></div>
+
 <script>
+    // Recupera a vitrine da memória ao voltar do vídeo
+    document.addEventListener("DOMContentLoaded", () => {
+        const vitrineSalva = JSON.parse(localStorage.getItem('vitrineML')) || [];
+        if(vitrineSalva.length > 0) renderGrid(vitrineSalva);
+    });
+
     async function buscar() {
-        const n = document.getElementById('nicho').value;
-        const res = await fetch('/api/garimpar?nicho=' + n);
-        const data = await res.json();
+        const btn = document.getElementById('btnGarimpar');
+        btn.innerText = "⏳ Aspirando categorias...";
+        btn.disabled = true;
+        document.getElementById('logs').innerText = "Iniciando varredura no banco e no Mercado Livre...";
+        
+        try {
+            const res = await fetch('/api/garimpar');
+            const data = await res.json();
+            
+            // Salva na memória do navegador
+            localStorage.setItem('vitrineML', JSON.stringify(data));
+            renderGrid(data);
+            
+            document.getElementById('logs').innerText = `✅ Garimpo concluído! ${data.length} produtos encontrados.`;
+        } catch (e) {
+            document.getElementById('logs').innerText = "❌ Erro ao garimpar. O Mercado Livre pode ter bloqueado a requisição.";
+        }
+        
+        btn.innerText = "🎲 GARIMPAR NOVAMENTE";
+        btn.disabled = false;
+    }
+
+    function renderGrid(data) {
         const grid = document.getElementById('grid');
         grid.innerHTML = '';
         data.forEach(p => {
-            grid.innerHTML += `<div class="bg-slate-800 p-4 rounded border border-slate-700">
-                <img src="${p.imagens[0]}" class="h-32 w-full object-cover rounded mb-2">
-                <h3 class="text-sm font-bold truncate">${p.titulo}</h3>
-                <button onclick='gerar(${JSON.stringify(p)})' class="w-full bg-green-600 mt-2 py-2 rounded text-xs font-bold">CRIAR REELS</button>
+            grid.innerHTML += `
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-all overflow-hidden flex flex-col">
+                <a href="${p.url}" target="_blank" class="block cursor-pointer group" title="Abrir no Mercado Livre">
+                    <div class="h-48 bg-slate-50 p-4 flex items-center justify-center relative">
+                        <span class="absolute top-2 right-2 bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition">Ver no ML</span>
+                        <img src="${p.imagens[0]}" class="max-h-full max-w-full object-contain mix-blend-multiply">
+                    </div>
+                    <div class="p-4 flex-grow">
+                        <h3 class="text-sm font-bold text-slate-700 line-clamp-2 group-hover:text-blue-600 transition">${p.titulo}</h3>
+                        <p class="text-emerald-600 font-extrabold text-lg mt-2">R$ ${p.preco.toFixed(2).replace('.', ',')}</p>
+                    </div>
+                </a>
+                <div class="p-4 pt-0 mt-auto">
+                    <button onclick='gerar(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg text-sm font-bold shadow-md transition">
+                        CRIAR REELS
+                    </button>
+                </div>
             </div>`;
         });
     }
+
     async function gerar(p) {
-        const link = prompt("Cole seu link meli.la:");
+        const link = prompt("PASSO 2:\nCole seu link de afiliado oficial (meli.la) para:\n" + p.titulo.substring(0, 30) + "...");
         if(!link) return;
+
+        // Remove o item da tela e da memória local para não oferecer de novo
+        let salvos = JSON.parse(localStorage.getItem('vitrineML')) || [];
+        salvos = salvos.filter(item => item.url !== p.url);
+        localStorage.setItem('vitrineML', JSON.stringify(salvos));
+        renderGrid(salvos);
+
+        document.getElementById('logs').innerText = "Iniciando produção... Acompanhe os logs.";
+        
         await fetch('/api/produzir', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({...p, link_afiliado: link})
         });
-        setInterval(async () => {
+
+        // Fica checando os logs até terminar
+        const interval = setInterval(async () => {
             const r = await fetch('/api/logs');
             const d = await r.json();
             document.getElementById('logs').innerText = d.logs;
-            if(d.logs.includes("VÍDEO PRONTO")) window.location.href = '/video';
+            if(d.logs.includes("VÍDEO PRONTO")) {
+                clearInterval(interval);
+                window.location.href = '/video';
+            }
         }, 3000);
     }
 </script>
 {% endblock %}
+

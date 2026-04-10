@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="flex justify-between items-center mb-8">
+    <h1 class="text-3xl font-extrabold text-slate-800">Histórico de Reels</h1>
+    <a href="/" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg font-semibold transition">← Voltar</a>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <table class="w-full text-left border-collapse">
+        <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
+                <th class="p-4 font-semibold">Data</th>
+                <th class="p-4 font-semibold">Produto</th>
+                <th class="p-4 font-semibold">Link de Afiliado</th>
+                <th class="p-4 font-semibold text-center">Ações</th>
+            </tr>
+        </thead>
+        <tbody class="text-sm">
+            {% for v in videos %}
+            <tr class="border-b border-slate-100 hover:bg-slate-50 transition" id="row-{{ v.id }}">
+                <td class="p-4 text-slate-500">{{ v.criado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+                <td class="p-4 font-semibold text-slate-700 max-w-xs truncate" title="{{ v.produto.titulo }}">{{ v.produto.titulo }}</td>
+                <td class="p-4 text-blue-600"><a href="{{ v.link_afiliado }}" target="_blank" class="hover:underline">{{ v.link_afiliado }}</a></td>
+                <td class="p-4 text-center">
+                    <button onclick="deletarVideo({{ v.id }})" class="text-red-500 hover:text-red-700 font-bold px-3 py-1 rounded bg-red-50 hover:bg-red-100 transition">Excluir</button>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="p-8 text-center text-slate-400">Nenhum vídeo foi gerado ainda.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    async function deletarVideo(id) {
+        if(!confirm("Tem certeza que deseja apagar o registro desse vídeo? O item voltará a aparecer no garimpo.")) return;
+        
+        const res = await fetch('/api/historico/' + id, { method: 'DELETE' });
+        const data = await res.json();
+        
+        if(data.status === 'sucesso') {
+            document.getElementById('row-' + id).remove();
+        } else {
+            alert('Erro ao excluir.');
+        }
+    }
+</script>
+{% endblock %}
+
