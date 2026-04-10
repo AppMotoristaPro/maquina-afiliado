@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 import re
 
 def buscar_produtos_tendencia(termo_busca):
-    print(f"--- [MINERADOR] GARIMPANDO VITRINE PARA: {termo_busca} ---")
+    print(f"--- [MINERADOR] BUSCANDO O TOP 1 DE: {termo_busca} ---")
     url_busca = f"https://lista.mercadolivre.com.br/{termo_busca.replace(' ', '-')}"
     
     headers = {
@@ -24,15 +24,8 @@ def buscar_produtos_tendencia(termo_busca):
                 if url_limpa not in links:
                     links.append(url_limpa)
 
-        print(f"--- [MINERADOR] {len(links)} links encontrados. Filtrando os melhores... ---")
-
-        produtos_aprovados = []
-
-        # Analisa os links até encontrar 5 produtos perfeitos
+        # Analisa os links até encontrar 1 produto perfeito para a categoria
         for url_p in links:
-            if len(produtos_aprovados) >= 4: # Traz 4 opções para a sua vitrine
-                break
-                
             res_p = requests.get(url_p, impersonate="chrome110", headers=headers, timeout=30)
             if res_p.status_code != 200: continue
                 
@@ -48,16 +41,17 @@ def buscar_produtos_tendencia(termo_busca):
             
             imagens = list(set(re.findall(r'https://http2\.mlstatic\.com/D_NQ_NP_[\w\-]+-O\.webp|https://http2\.mlstatic\.com/D_NQ_NP_2X_[\w\-]+\.jpg', html_p)))
 
+            # Se tem imagens suficientes, retorna esse e para a busca
             if len(imagens) >= 2:
-                produtos_aprovados.append({
+                return [{
                     "id": "MLB",
                     "titulo": titulo,
                     "preco": preco,
                     "url_original": url_p,
                     "midia": {"imagens_url": imagens[:6]}
-                })
+                }]
         
-        return produtos_aprovados
+        return []
 
     except Exception as e:
         print(f"--- [MINERADOR] Erro crítico: {e} ---")

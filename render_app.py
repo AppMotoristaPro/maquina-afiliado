@@ -14,10 +14,11 @@ INFO_PATH = "produto_info.json"
 
 status_sistema = {"ocupado": False}
 
-# Lista de nichos virais pré-programados
-NICHOS_VIRAIS = [
-    "smartwatch", "fone bluetooth", "robo aspirador", "projetor inteligente", 
-    "mini liquidificador", "garrafa termica inteligente", "camera wifi", "luminaria rgb"
+# Lista expandida de categorias para trazer variedade
+CATEGORIAS_ML = [
+    "fone de ouvido sem fio", "air fryer", "camera de seguranca wifi", 
+    "projetor smart", "garrafa termica inteligente", "mochila impermeavel",
+    "robo aspirador", "luminaria led rgb", "kit maquiagem", "relogio smartwatch"
 ]
 
 def escrever_log(mensagem):
@@ -33,80 +34,87 @@ def home():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Vórtice | Vitrine Automática</title>
+        <title>Vórtice | Dashboard</title>
+        <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
         <style>
-            :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --primary: #8b5cf6; --success: #10b981; }
-            body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-            .container { max-width: 1000px; margin: 0 auto; }
-            h1 { text-align: center; font-weight: 800; margin-bottom: 30px; color: var(--primary); }
-            
-            .header-actions { text-align: center; margin-bottom: 40px; }
-            .btn-garimpo { padding: 18px 36px; border: none; border-radius: 12px; background: var(--primary); color: white; font-weight: 800; font-size: 18px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4); }
-            .btn-garimpo:hover { transform: scale(1.05); }
-            
-            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
-            .card { background: var(--card); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; border: 1px solid #334155; }
-            .card-img { width: 100%; height: 200px; object-fit: cover; background: #fff; }
-            .card-body { padding: 15px; display: flex; flex-direction: column; flex: 1; }
-            .card-title { font-size: 14px; margin: 0 0 10px 0; font-weight: 600; line-height: 1.4; }
-            .btn-create { margin-top: auto; background: var(--success); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-            
-            .log-container { background: #000; padding: 15px; border-radius: 8px; border: 1px solid #334155; }
-            .log-box { height: 200px; overflow-y: auto; font-family: monospace; font-size: 13px; color: #4ade80; white-space: pre-wrap; }
-            
-            .loader { display: none; text-align: center; margin: 20px; font-weight: bold; color: var(--primary); font-size: 18px; }
-            .video-btn { display: none; background: var(--success); width: 100%; padding: 20px; font-size: 20px; margin-top: 20px; text-align: center; text-decoration: none; border-radius: 12px; font-weight: bold; box-sizing: border-box; color: white;}
+            body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); min-height: 100vh; color: #f8fafc; }
+            .glass-panel { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1.5rem; }
+            .log-box::-webkit-scrollbar { width: 8px; }
+            .log-box::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
         </style>
     </head>
-    <body>
-        <div class="container">
-            <h1>🚀 Vórtice Vitrine Automática</h1>
+    <body class="p-4 md:p-8">
+        <div class="max-w-6xl mx-auto">
             
-            <div class="header-actions">
-                <button onclick="buscarProdutos()" class="btn-garimpo" id="btnGarimpar">🎲 Garimpar Produtos Virais</button>
+            <header class="text-center mb-10">
+                <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-4">Vórtice Afiliados</h1>
+                <p class="text-slate-400 text-lg">Seu estúdio de criação automática de Reels</p>
+                <div class="mt-8">
+                    <button onclick="buscarProdutos()" id="btnGarimpar" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 px-8 rounded-2xl shadow-lg shadow-blue-500/30 transition-all transform hover:scale-105">
+                        🎲 Garimpar Produtos Variados
+                    </button>
+                </div>
+            </header>
+            
+            <div id="loader" class="hidden text-center my-8">
+                <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-white mb-4"></div>
+                <p class="text-blue-300 font-semibold text-lg">Aspirando o Mercado Livre... Isso pode levar uns 20 segundos.</p>
             </div>
             
-            <div id="loader" class="loader">Aspirando o Mercado Livre... Isso leva uns 15 segundos.</div>
-            <div id="produtosGrid" class="grid"></div>
+            <div id="produtosGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"></div>
             
-            <h3>Console de Produção</h3>
-            <div class="log-container">
-                <div id="logBox" class="log-box">Pronto para iniciar. Clique em Garimpar para ver as opções.</div>
+            <div class="glass-panel p-6 mb-8 shadow-2xl">
+                <h3 class="text-xl font-bold mb-4 flex items-center text-slate-200">
+                    <svg class="w-5 h-5 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M4 18h16a2 2 0 002-2V6a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    Console de Produção
+                </h3>
+                <div id="logBox" class="log-box h-48 overflow-y-auto font-mono text-sm text-green-400 whitespace-pre-wrap p-4 bg-black/50 rounded-xl">Pronto para iniciar. Clique em "Garimpar" para trazer opções de categorias diferentes.</div>
             </div>
             
-            <a href="/video" id="btnVideoPronto" class="video-btn">🎥 VÍDEO PRONTO! CLIQUE AQUI PARA BAIXAR</a>
+            <a href="/video" id="btnVideoPronto" class="hidden bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-center font-extrabold py-5 px-8 rounded-2xl shadow-lg shadow-emerald-500/30 text-xl transition-all transform hover:scale-[1.02] mb-10">
+                🎥 SEU VÍDEO ESTÁ PRONTO! CLIQUE AQUI PARA BAIXAR
+            </a>
         </div>
 
         <script>
             let pollingInterval;
 
             async function buscarProdutos() {
-                document.getElementById('loader').style.display = 'block';
+                document.getElementById('loader').classList.remove('hidden');
                 document.getElementById('produtosGrid').innerHTML = '';
                 document.getElementById('btnGarimpar').disabled = true;
                 
                 try {
                     const res = await fetch('/api/vitrine');
                     const produtos = await res.json();
-                    document.getElementById('loader').style.display = 'none';
+                    document.getElementById('loader').classList.add('hidden');
                     document.getElementById('btnGarimpar').disabled = false;
                     
                     if(produtos.length === 0) {
-                        alert("O Mercado Livre bloqueou a busca dessa vez. Clique em garimpar novamente.");
+                        alert("O Mercado Livre bloqueou a busca dessa vez. Tente novamente.");
                         return;
                     }
                     
                     produtos.forEach(p => {
                         const img = p.midia.imagens_url[0];
                         const precoF = p.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                        
                         const card = `
-                            <div class="card">
-                                <img src="${img}" class="card-img">
-                                <div class="card-body">
-                                    <h4 class="card-title">${p.titulo.substring(0, 60)}...</h4>
-                                    <p style="color: #4ade80; font-weight: bold; margin-top: 0;">${precoF}</p>
-                                    <button class="btn-create" onclick='iniciarVideo(${JSON.stringify(p)})'>Criar Reels</button>
+                            <div class="glass-panel overflow-hidden flex flex-col group transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/20">
+                                <img src="${img}" class="w-full h-48 object-cover bg-white">
+                                <div class="p-5 flex flex-col flex-grow">
+                                    <h4 class="text-sm font-semibold mb-2 line-clamp-2 text-slate-200">${p.titulo}</h4>
+                                    <p class="text-lg font-bold text-emerald-400 mb-4">${precoF}</p>
+                                    
+                                    <div class="mt-auto space-y-2">
+                                        <a href="${p.url_original}" target="_blank" class="block w-full text-center bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">
+                                            1. Pegar Link Meli.la
+                                        </a>
+                                        <button onclick='iniciarVideo(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 rounded-xl transition-colors">
+                                            2. Criar Reels
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -114,18 +122,18 @@ def home():
                     });
                 } catch(e) {
                     alert("Erro na comunicação com o servidor.");
-                    document.getElementById('loader').style.display = 'none';
+                    document.getElementById('loader').classList.add('hidden');
                     document.getElementById('btnGarimpar').disabled = false;
                 }
             }
 
             function iniciarVideo(produto) {
-                const linkAfiliado = prompt(`Cole o seu Link de Afiliado OFICIAL (meli.la) para o produto:\\n\\n${produto.titulo.substring(0,40)}...`);
+                const linkAfiliado = prompt(`PASSO 2: Cole aqui o seu link de afiliado oficial (meli.la) para o produto:\\n\\n${produto.titulo.substring(0,40)}...`);
                 
                 if(!linkAfiliado) return;
                 
                 document.getElementById('produtosGrid').innerHTML = '';
-                document.getElementById('btnGarimpar').style.display = 'none';
+                document.getElementById('btnGarimpar').parentElement.classList.add('hidden');
                 
                 fetch('/api/gerar', {
                     method: 'POST',
@@ -134,6 +142,7 @@ def home():
                 });
                 
                 pollingInterval = setInterval(atualizarLogs, 2000);
+                document.getElementById('logBox').innerHTML = "Iniciando processo...";
             }
 
             async function atualizarLogs() {
@@ -146,7 +155,7 @@ def home():
                 
                 if(!data.ocupado && data.logs.includes("VÍDEO PRONTO")) {
                     clearInterval(pollingInterval);
-                    document.getElementById('btnVideoPronto').style.display = 'block';
+                    document.getElementById('btnVideoPronto').classList.remove('hidden');
                 }
             }
         </script>
@@ -157,10 +166,17 @@ def home():
 
 @app.route('/api/vitrine')
 def api_vitrine():
-    # Sorteia um nicho viral para garantir vídeos diferentes a cada clique
-    nicho_sorteado = random.choice(NICHOS_VIRAIS)
-    produtos = buscar_produtos_tendencia(nicho_sorteado)
-    return jsonify(produtos)
+    # Sorteia 4 categorias diferentes para garantir variedade
+    categorias_sorteadas = random.sample(CATEGORIAS_ML, 4)
+    vitrine = []
+    
+    # Busca 1 produto campeão para cada categoria sorteada
+    for cat in categorias_sorteadas:
+        produtos = buscar_produtos_tendencia(cat)
+        if produtos:
+            vitrine.append(produtos[0])
+            
+    return jsonify(vitrine)
 
 @app.route('/api/gerar', methods=['POST'])
 def api_gerar():
@@ -196,24 +212,46 @@ def api_logs():
 @app.route('/video')
 def video_page():
     if not os.path.exists(INFO_PATH):
-        return "Vídeo não encontrado.", 404
+        return "<h2 class='text-center mt-10 text-white font-sans'>Vídeo não encontrado.</h2>", 404
         
     with open(INFO_PATH, "r", encoding="utf-8") as f:
         info = json.load(f)
         
     html = """
-    <body style="font-family: Arial; background: #0f172a; color: white; padding: 20px; max-width: 500px; margin: auto; text-align: center;">
-        <h2>Seu Reels Está Pronto! 🎉</h2>
-        <video width="100%" controls style="border-radius: 12px; margin-bottom: 20px;">
-            <source src="/download" type="video/mp4">
-        </video>
-        <a href="/download" style="display: block; padding: 15px; background: #10b981; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold; margin-bottom: 20px;">⬇ Baixar Vídeo</a>
-        <div style="background: #1e293b; padding: 20px; border-radius: 8px; text-align: left;">
-            <h4 style="margin-top: 0; color: #8b5cf6;">📝 Copie a sua Legenda</h4>
-            <textarea style="width: 100%; height: 150px; padding: 10px; border-radius: 5px; background: #0f172a; color: white; border: 1px solid #334155;" readonly>{{ info.descricao }}</textarea>
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Seu Reels</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    </head>
+    <body class="bg-slate-900 font-sans text-slate-200 min-h-screen flex flex-col items-center py-10 px-4">
+        
+        <div class="max-w-md w-full bg-slate-800/50 backdrop-blur-xl border border-slate-700 p-6 rounded-3xl shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-6 text-center line-clamp-2">{{ info.titulo }}</h3>
+            
+            <video class="w-full rounded-2xl shadow-lg bg-black mb-6" controls>
+                <source src="/download" type="video/mp4">
+            </video>
+            
+            <a href="/download" class="block w-full bg-emerald-500 hover:bg-emerald-400 text-white text-center font-bold py-4 rounded-xl shadow-lg transition-colors mb-6">
+                ⬇ Baixar Vídeo
+            </a>
+            
+            <div class="bg-slate-900/50 border border-slate-700 p-5 rounded-2xl">
+                <h4 class="text-blue-400 font-bold mb-2">📝 Sua Copy (Para o Instagram/TikTok)</h4>
+                <textarea class="w-full h-40 bg-slate-800 text-slate-300 border border-slate-600 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500" readonly>{{ info.descricao }}</textarea>
+            </div>
+            
+            <div class="mt-8 text-center">
+                <a href="/" class="text-slate-400 hover:text-white font-medium transition-colors">← Voltar ao Painel</a>
+            </div>
         </div>
-        <a href="/" style="display: inline-block; margin-top: 20px; color: #94a3b8; text-decoration: none;">← Voltar ao Painel</a>
+        
     </body>
+    </html>
     """
     return render_template_string(html, info=info)
 
