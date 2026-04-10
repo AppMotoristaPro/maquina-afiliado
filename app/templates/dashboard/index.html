@@ -19,7 +19,7 @@
 
 <div id="progresso-container" class="hidden w-full max-w-xl mx-auto mb-10 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
     <div class="flex justify-between mb-2">
-      <span id="progresso-msg" class="text-sm font-bold text-blue-700">Iniciando sistema...</span>
+      <span id="progresso-msg" class="text-sm font-bold text-blue-700">Aguardando...</span>
       <span id="progresso-pct" class="text-sm font-bold text-blue-700">0%</span>
     </div>
     <div class="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
@@ -35,21 +35,56 @@
         if(vitrineSalva.length > 0) renderGrid(vitrineSalva);
     });
 
+    // Função auxiliar para controlar a barra no frontend
+    function setBarraProgresso(mostrar, percent, msg) {
+        const container = document.getElementById('progresso-container');
+        if(mostrar) {
+            container.classList.remove('hidden');
+        } else {
+            container.classList.add('hidden');
+        }
+        document.getElementById('progresso-bar').style.width = percent + '%';
+        document.getElementById('progresso-pct').innerText = percent + '%';
+        document.getElementById('progresso-msg').innerText = msg;
+    }
+
     async function buscar() {
         const btn = document.getElementById('btnGarimpar');
-        btn.innerText = "⏳ Aspirando categorias...";
         btn.disabled = true;
         
+        // Esconde os produtos velhos e mostra a barra
+        document.getElementById('grid').innerHTML = '';
+        setBarraProgresso(true, 15, "Aspirando vitrines do Mercado Livre...");
+        
+        // Simulação de progresso enquanto a API não responde
+        let simulador = 15;
+        const fakeInterval = setInterval(() => {
+            if(simulador < 85) {
+                simulador += 5;
+                setBarraProgresso(true, simulador, "Filtrando as melhores imagens...");
+            }
+        }, 1000);
+
         try {
             const res = await fetch('/api/garimpar');
             const data = await res.json();
+            
+            clearInterval(fakeInterval);
+            setBarraProgresso(true, 100, "Garimpo Concluído!");
+            
             localStorage.setItem('vitrineML', JSON.stringify(data));
-            renderGrid(data);
+            
+            // Dá 1 segundo pra pessoa ver o 100% e depois esconde a barra e mostra os produtos
+            setTimeout(() => {
+                setBarraProgresso(false, 0, "");
+                renderGrid(data);
+            }, 1000);
+            
         } catch (e) {
-            alert("Erro ao garimpar. O Mercado Livre pode ter bloqueado a requisição temporariamente.");
+            clearInterval(fakeInterval);
+            setBarraProgresso(true, 100, "Erro ao conectar com o Mercado Livre.");
         }
         
-        btn.innerText = "🎲 GARIMPAR NOVAMENTE";
         btn.disabled = false;
     }
 
@@ -82,12 +117,12 @@
         const link = prompt("PASSO 2:\nCole seu link de afiliado oficial (meli.la) para:\n" + p.titulo.substring(0, 30) + "...");
         if(!link) return;
 
-        // Limpa a tela e exibe a barra de progresso
         document.getElementById('grid').innerHTML = '';
         document.getElementById('painel-garimpo').classList.add('hidden');
-        document.getElementById('progresso-container').classList.remove('hidden');
+        
+        // Inicia a barra real do backend
+        setBarraProgresso(true, 5, "Iniciando processo...");
 
-        // Atualiza a vitrine em background
         let salvos = JSON.parse(localStorage.getItem('vitrineML')) || [];
         salvos = salvos.filter(item => item.url !== p.url);
         localStorage.setItem('vitrineML', JSON.stringify(salvos));
@@ -98,14 +133,12 @@
             body: JSON.stringify({...p, link_afiliado: link})
         });
 
-        // Polling da barra de progresso
+        // Polling da barra de progresso (Ligado ao Backend)
         const interval = setInterval(async () => {
             const r = await fetch('/api/progresso');
             const d = await r.json();
             
-            document.getElementById('progresso-bar').style.width = d.percent + '%';
-            document.getElementById('progresso-pct').innerText = d.percent + '%';
-            document.getElementById('progresso-msg').innerText = d.msg;
+            setBarraProgresso(true, d.percent, d.msg);
             
             if(d.msg === "VÍDEO PRONTO") {
                 clearInterval(interval);
