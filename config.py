@@ -1,13 +1,12 @@
-# config.py
+import os
+from dotenv import load_dotenv
 
-# --- Filtros de Negócio ---
-PRECO_MIN = 40.0
-PRECO_MAX = 250.0
-NOTA_MINIMA = 4.5
-QTD_MINIMA_IMAGENS = 5
+load_dotenv()
 
-# --- URLs Base APIs ---
-ML_BASE_URL = "https://api.mercadolibre.com"
-# --- Configurações de Afiliado ---
-AFILIADO_ID_ML = "igormikael" # Quando sua conta for aprovada, você coloca seu ID real aqui
-SCRAPER_API_KEY = "326e68b3d66804516e7233ac007a37f5"
+class Config:
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key')
+    db_url = os.environ.get('DATABASE_URL', '')
+    if db_url.startswith('postgres://'):
+        db_url = db_url.replace('postgres://', 'postgresql://', 1)
+    SQLALCHEMY_DATABASE_URI = db_url
+    SQLALCHEMY_TRACK_MODIFICATIONS = False

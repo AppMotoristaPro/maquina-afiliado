@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-5 text-center">VÍDEO GERADO COM SUCESSO!</h1>
+<div class="flex flex-col items-center">
+    <video controls class="w-72 rounded-xl border-4 border-slate-700 shadow-2xl mb-5">
+        <source src="/api/logs" type="video/mp4"> </video>
+    <p class="text-slate-400 mb-10 text-center">O arquivo reels_final.mp4 foi salvo na raiz do projeto.</p>
+    <a href="/" class="text-blue-500">← Voltar e Criar Outro</a>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-3xl font-black text-blue-500 mb-5 text-center">🤖 MÁQUINA DE COMISSÃO</h1>
+<div class="flex gap-2 mb-10">
+    <input id="nicho" class="flex-1 p-3 rounded bg-slate-800 border border-slate-700" placeholder="Digite um nicho...">
+    <button onclick="buscar()" class="bg-blue-600 px-6 rounded font-bold">GARIMPAR</button>
+</div>
+<div id="grid" class="grid grid-cols-2 gap-4 mb-10"></div>
+<div class="bg-black p-5 rounded font-mono text-green-500 h-40 overflow-y-auto" id="logs">Console pronto...</div>
+<script>
+    async function buscar() {
+        const n = document.getElementById('nicho').value;
+        const res = await fetch('/api/garimpar?nicho=' + n);
+        const data = await res.json();
+        const grid = document.getElementById('grid');
+        grid.innerHTML = '';
+        data.forEach(p => {
+            grid.innerHTML += `<div class="bg-slate-800 p-4 rounded border border-slate-700">
+                <img src="${p.imagens[0]}" class="h-32 w-full object-cover rounded mb-2">
+                <h3 class="text-sm font-bold truncate">${p.titulo}</h3>
+                <button onclick='gerar(${JSON.stringify(p)})' class="w-full bg-green-600 mt-2 py-2 rounded text-xs font-bold">CRIAR REELS</button>
+            </div>`;
+        });
+    }
+    async function gerar(p) {
+        const link = prompt("Cole seu link meli.la:");
+        if(!link) return;
+        await fetch('/api/produzir', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({...p, link_afiliado: link})
+        });
+        setInterval(async () => {
+            const r = await fetch('/api/logs');
+            const d = await r.json();
+            document.getElementById('logs').innerText = d.logs;
+            if(d.logs.includes("VÍDEO PRONTO")) window.location.href = '/video';
+        }, 3000);
+    }
+</script>
+{% endblock %}
