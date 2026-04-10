@@ -3,14 +3,15 @@ import os
 import requests
 import PIL.Image
 import PIL.ImageFilter
+from PIL import ImageDraw, ImageFont
 import numpy as np
 import json
+import urllib.request
 
-os.environ["IMAGEMAGICK_BINARY"] = "/usr/bin/convert"
 if not hasattr(PIL.Image, 'ANTIALIAS'):
     PIL.Image.ANTIALIAS = PIL.Image.Resampling.LANCZOS
 
-from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip, CompositeVideoClip, TextClip
+from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip, CompositeVideoClip
 
 def baixar_midia(produto, pasta_destino="downloads"):
     os.makedirs(pasta_destino, exist_ok=True)
@@ -24,12 +25,51 @@ def baixar_midia(produto, pasta_destino="downloads"):
         except: continue
     return caminhos
 
+def desenhar_palavra_legenda(texto, largura_video):
+    """Cria uma imagem PNG da palavra usando Pillow (Substitui o ImageMagick do Render)"""
+    altura_box = 120
+    img = PIL.Image.new('RGBA', (largura_video, altura_box), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    
+    font_path = "Roboto-Black.ttf"
+    if not os.path.exists(font_path):
+        try:
+            # Baixa a fonte Roboto Black direto do repositório do Google
+            urllib.request.urlretrieve("https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Black.ttf", font_path)
+        except: pass
+
+    try:
+        fonte = ImageFont.truetype(font_path, 60) # Tamanho da legenda
+    except:
+        fonte = ImageFont.load_default()
+        
+    try:
+        bbox = draw.textbbox((0,0), texto, font=fonte)
+        tw = bbox[2] - bbox[0]
+        th = bbox[3] - bbox[1]
+    except:
+        tw, th = 200, 50
+        
+    x = (largura_video - tw) / 2
+    y = (altura_box - th) / 2
+    
+    # Desenha Borda Preta
+    contorno = 3
+    for dx in range(-contorno, contorno+1):
+        for dy in range(-contorno, contorno+1):
+            draw.text((x+dx, y+dy), texto, font=fonte, fill="black")
+            
+    # Preenchimento Amarelo Viral
+    draw.text((x, y), texto, font=fonte, fill="#FFEA00")
+    
+    return np.array(img)
+
 def criar_video_reels(caminhos_imagens, caminho_audio=None, caminho_legenda=None, nome_saida="reels_final.mp4", logger=print):
     W, H = 480, 854 
     clips = []
 
     try:
-        # 1. Montagem do Fundo
+        # 1. Monta Imagens (Fundo desfocado)
         for img_path in caminhos_imagens:
             img_pil = PIL.Image.open(img_path).convert("RGB")
             bg_pil = img_pil.resize((W, H), PIL.Image.LANCZOS).filter(PIL.ImageFilter.GaussianBlur(10))
@@ -39,12 +79,12 @@ def criar_video_reels(caminhos_imagens, caminho_audio=None, caminho_legenda=None
 
         video = concatenate_videoclips(clips, method="compose")
 
-        # 2. Inserção do Áudio principal
+        # 2. Áudio
         if caminho_audio and os.path.exists(caminho_audio):
             voz = AudioFileClip(caminho_audio)
             video = video.set_audio(voz).set_duration(voz.duration)
 
-        # 3. MÁGICA: Legendas Dinâmicas Palavra por Palavra
+        # 3. Legendas Nativas (Driblando o Render)
         try:
             if caminho_legenda and os.path.exists(caminho_legenda):
                 legenda_clips = []
@@ -52,42 +92,30 @@ def criar_video_reels(caminhos_imagens, caminho_audio=None, caminho_legenda=None
                     legendas = json.load(f)
                     
                 for leg in legendas:
-                    # Filtra pontuações sozinhas que a IA às vezes separa
-                    if len(leg["text"].strip()) < 2 and leg["text"].strip() not in ["e", "a", "o", "é", "ó"]:
-                        continue
+                    texto = leg["text"].strip().upper()
+                    # Ignora caracteres minúsculos isolados
+                    if len(texto) < 2 and texto not in ["E", "A", "O", "É", "Ó"]: continue
                     
-                    # Cria a palavra no estilo TikTok (Amarelo com borda)
-                    txt_clip = TextClip(
-                        leg["text"], 
-                        fontsize=65, 
-                        color='yellow', 
-                        stroke_color='black', 
-                        stroke_width=2.5
-                    ).set_position(('center', int(H * 0.7))) # Coloca na parte de baixo da tela
+                    # Usa nosso criador de imagem nativo
+                    img_array = desenhar_palavra_legenda(texto, W)
                     
-                    # Define exatamente em qual milissegundo a palavra aparece e some
-                    txt_clip = txt_clip.set_start(leg["start"]).set_end(leg["end"])
+                    # Transforma a imagem em um Clip de vídeo que aparece e some no tempo exato
+                    txt_clip = ImageClip(img_array).set_start(leg["start"]).set_end(leg["end"])
+                    txt_clip = txt_clip.set_position(('center', int(H * 0.70))) # 70% da altura da tela (parte de baixo)
+                    
                     legenda_clips.append(txt_clip)
 
-                # Junta o vídeo com todas as palavras pipocando
                 if legenda_clips:
                     video = CompositeVideoClip([video] + legenda_clips)
         except Exception as e:
-            logger(f"--- [AVISO] Falha ao gerar legendas, seguindo sem elas: {e} ---")
+            logger(f"--- [AVISO] O processo da legenda falhou: {e} ---")
 
-        logger("--- [EDITOR] Iniciando gravação do arquivo... ---")
+        logger("--- [EDITOR] Iniciando gravação otimizada do arquivo... ---")
         video.write_videofile(
-            nome_saida, 
-            fps=20, 
-            codec="libx264", 
-            audio_codec="aac", 
-            preset="ultrafast",
-            threads=1,
-            logger=None
+            nome_saida, fps=20, codec="libx264", audio_codec="aac", preset="ultrafast", threads=1, logger=None
         )
         video.close()
         return nome_saida
-        
     except Exception as e:
         logger(f"--- [EDITOR] ERRO CRÍTICO NA EDIÇÃO: {e} ---")
         return None

@@ -50,7 +50,7 @@ def home():
 @app.route('/video')
 def video_page():
     if not os.path.exists(VIDEO_PATH) or not os.path.exists(INFO_PATH):
-        return "<h2 style='font-family: Arial; text-align: center; margin-top: 50px;'>O vídeo ainda não está pronto. Acompanhe os logs!</h2>", 404
+        return "<h2 style='font-family: Arial; text-align: center; margin-top: 50px;'>O vídeo ainda não está pronto. Acompanhe os logs no painel!</h2>", 404
         
     with open(INFO_PATH, "r", encoding="utf-8") as f:
         info = json.load(f)
@@ -65,13 +65,14 @@ def video_page():
             <source src="/download" type="video/mp4">
         </video>
         
-        <a href="/download" style="display: block; padding: 15px; background: #28a745; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold; margin-bottom: 20px;">⬇ Baixar Vídeo para o Celular</a>
+        <a href="/download" style="display: block; padding: 15px; background: #28a745; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold; margin-bottom: 20px;">⬇ Baixar Vídeo</a>
         
         <div style="background: #fff; padding: 20px; border-radius: 8px; text-align: left; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-            <h4 style="margin-top: 0; color: #007bff;">🔗 Seu Link de Afiliado</h4>
-            <input type="text" value="{{ info.link }}" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 15px;" readonly>
+            <h4 style="margin-top: 0; color: #007bff; margin-bottom: 5px;">🔗 Link Base do Produto</h4>
+            <input type="text" value="{{ info.link }}" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 5px;" readonly>
+            <p style="font-size: 13px; color: #d9534f; margin-top: 0; font-weight: bold;">⚠️ Atenção: Copie o link acima e cole no aplicativo do Mercado Livre para gerar o seu "meli.la" e garantir a comissão!</p>
             
-            <h4 style="color: #ff5722;">📝 Descrição para Copiar</h4>
+            <h4 style="color: #ff5722; margin-top: 20px;">📝 Descrição para Copiar</h4>
             <textarea style="width: 100%; height: 120px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;" readonly>{{ info.descricao }}</textarea>
         </div>
         
@@ -87,18 +88,20 @@ def download_file():
 
 def loop_principal():
     time.sleep(10)
-    # Limpa log antigo
+    # Limpa log antigo para não acumular
     open(LOG_PATH, "w").close() 
     escrever_log("--- [SISTEMA] Iniciando novo ciclo do robô ---")
     
+    # Limpa arquivos da rodada anterior
     if os.path.exists(VIDEO_PATH): os.remove(VIDEO_PATH)
     if os.path.exists(INFO_PATH): os.remove(INFO_PATH)
     
     try:
-        iniciar(escrever_log) # Passa o sistema de log para o app
+        iniciar(escrever_log) # Passa a função de log do painel web para dentro do robô
     except Exception as e:
         escrever_log(f"--- [ERRO CRÍTICO] {e} ---")
 
+# Inicia a mineração e edição em segundo plano
 threading.Thread(target=loop_principal, daemon=True).start()
 
 if __name__ == "__main__":
