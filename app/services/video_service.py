@@ -6,64 +6,80 @@ import json
 import gc
 from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip, CompositeVideoClip
 
-# Patch ImageMagick/Pillow
-if not hasattr(PIL.Image, 'ANTIALIAS'):
-    PIL.Image.ANTIALIAS = PIL.Image.Resampling.LANCZOS
+def baixar_fonte():
+    font_path = "downloads/font.ttf"
+    if not os.path.exists(font_path):
+        url = "https://github.com/google/fonts/raw/main/apache/robotocondensed/RobotoCondensed-Bold.ttf"
+        r = requests.get(url)
+        with open(font_path, "wb") as f: f.write(r.content)
+    return font_path
 
 def renderizar_video(imagens_urls, audio_path, json_path, logger):
-    W, H = 360, 640 # Resolução reduzida agressivamente para evitar Out Of Memory no Render
+    W, H = 360, 640
     clips = []
     
-    logger("--- [EDITOR] Baixando Imagens ---")
-    for i, url in enumerate(imagens_urls[:4]):
+    audio = AudioFileClip(audio_path)
+    total_duration = audio.duration
+    # Calcula o tempo de cada imagem para o vídeo nunca ficar preto
+    duration_per_img = total_duration / len(imagens_urls[:6])
+    
+    font_p = baixar_fonte()
+
+    logger("--- [EDITOR] Processando Imagens Orgânicas ---")
+    for i, url in enumerate(imagens_urls[:6]):
         img_data = requests.get(url).content
-        with open(f"downloads/i_{i}.jpg", "wb") as f: f.write(img_data)
+        temp_img = f"downloads/i_{i}.jpg"
+        with open(temp_img, "wb") as f: f.write(img_data)
         
-        img = PIL.Image.open(f"downloads/i_{i}.jpg").convert("RGB")
-        bg = img.resize((W,H), PIL.Image.Resampling.LANCZOS).filter(PIL.ImageFilter.GaussianBlur(15))
-        fg = img.resize((W-30, int((W-30)*(img.height/img.width))), PIL.Image.Resampling.LANCZOS)
+        img = PIL.Image.open(temp_img).convert("RGB")
+        # Criando o fundo desfocado estendido
+        bg = img.resize((W,H), PIL.Image.Resampling.LANCZOS).filter(PIL.ImageFilter.GaussianBlur(20))
+        # Imagem principal centralizada
+        fg_w = W - 40
+        fg_h = int(fg_w * (img.height / img.width))
+        fg = img.resize((fg_w, fg_h), PIL.Image.Resampling.LANCZOS)
         
-        final_slide = PIL.Image.fromarray(np.array(bg))
-        final_slide.paste(fg, (15, (H-fg.height)//2))
+        final_slide = bg.copy()
+        final_slide.paste(fg, (20, (H - fg_h) // 2))
         
-        clip = ImageClip(np.array(final_slide)).set_duration(3.0)
-        clips.append(clip)
+        clips.append(ImageClip(np.array(final_slide)).set_duration(duration_per_img))
         
-        # Libera memória imediatamente
         del img, bg, fg, final_slide
         gc.collect()
 
-    video = concatenate_videoclips(clips, method="compose")
-    audio = AudioFileClip(audio_path)
-    video = video.set_audio(audio).set_duration(audio.duration)
+    video = concatenate_videoclips(clips, method="compose").set_audio(audio)
 
-    logger("--- [EDITOR] Aplicando Legendas ---")
+    logger("--- [EDITOR] Gerando Legendas Dinâmicas ---")
     with open(json_path, "r", encoding="utf-8") as f: data = json.load(f)
     
     leg_clips = []
     for item in data:
         txt = item["text"].upper()
-        if len(txt) < 2 and txt not in ["E", "A", "O", "É", "Ó"]: continue
+        if len(txt) < 2: continue
         
-        canvas = PIL.Image.new("RGBA", (W, 100), (0,0,0,0))
+        # Criando uma tarja semi-transparente para a legenda
+        canvas = PIL.Image.new("RGBA", (W, 120), (0,0,0,0))
         draw = PIL.ImageDraw.Draw(canvas)
-        # Fonte default para não depender de pacotes externos
-        fonte = PIL.ImageFont.load_default() 
-        draw.text((W//2, 50), txt, font=fonte, fill="yellow", stroke_width=2, stroke_fill="black", anchor="mm")
+        try:
+            fonte = PIL.ImageFont.truetype(font_p, 45) # Fonte grande e negrita
+        except:
+            fonte = PIL.ImageFont.load_default()
+
+        # Desenha a palavra com contorno para máxima visibilidade
+        pos = (W//2, 60)
+        draw.text(pos, txt, font=fonte, fill="yellow", stroke_width=3, stroke_fill="black", anchor="mm")
         
-        l_clip = ImageClip(np.array(canvas)).set_start(item["start"]).set_end(item["end"]).set_position(("center", H-150))
+        l_clip = ImageClip(np.array(canvas)).set_start(item["start"]).set_end(item["end"]).set_position(("center", H-180))
         leg_clips.append(l_clip)
 
     if leg_clips:
         video = CompositeVideoClip([video] + leg_clips)
 
-    logger("--- [EDITOR] Gravando arquivo (FPS=15)... ---")
-    # Forçar fps baixo e preset muito rápido para estabilidade de servidor
+    logger("--- [EDITOR] Renderizando Reels Final ---")
     video.write_videofile("reels_final.mp4", fps=15, codec="libx264", preset="ultrafast", threads=1, logger=None)
     
     video.close()
     audio.close()
     gc.collect()
-    
     return "reels_final.mp4"
 
