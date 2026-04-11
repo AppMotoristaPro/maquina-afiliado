@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from app.services.mineracao_service import garimpar_produtos, garimpar_por_url
-from app.services.shopee_service import garimpar_shopee
+from app.services.shopee_service import garimpar_shopee, garimpar_shopee_url
 from app.services.locucao_service import executar_locucao
 from app.services.video_service import renderizar_video
 from app.models.produto import Produto
@@ -27,8 +27,13 @@ def api_garimpar():
 @api_bp.route('/garimpar/url', methods=['POST'])
 def api_garimpar_url():
     data = request.json
-    url = data.get('url')
-    return jsonify(garimpar_por_url(url))
+    url = data.get('url', '')
+    
+    # Roteamento Inteligente: Verifica de qual site é o link colado
+    if 'shopee.com' in url:
+        return jsonify(garimpar_shopee_url(url))
+    else:
+        return jsonify(garimpar_por_url(url))
 
 @api_bp.route('/produzir', methods=['POST'])
 def api_produzir():
@@ -48,7 +53,6 @@ def api_produzir():
     db.session.add(produto)
     db.session.commit()
 
-    # Gerador de Hashtags dinâmico
     palavras = re.sub(r'[^a-zA-Z0-9 ]', '', data['titulo']).split()
     tags = " ".join([f"#{p.lower()}" for p in palavras[:3] if len(p) > 2])
     bloco_tags = f"\n\n{tags} #achadinhos #{'shopee' if plataforma == 'shopee' else 'mercadolivre'} #promocao"
@@ -74,6 +78,9 @@ def api_produzir():
                 set_progresso(100, "VÍDEO PRONTO")
             except Exception as e:
                 set_progresso(100, f"ERRO: {e}")
+                v = Video.query.get(v_id)
+                v.status = 'erro'
+                db.session.commit()
     
     threading.Thread(target=worker, args=(app_context, video.id, data)).start()
     return jsonify({"status": "iniciado"})
@@ -84,4 +91,15 @@ def api_progresso():
         with open("progress.json", "r", encoding="utf-8") as f:
             return jsonify(json.load(f))
     except: return jsonify({"percent": 0, "msg": "Aguardando..."})
+    
+@api_bp.route('/historico/<int:video_id>', methods=['DELETE'])
+def deletar_historico(video_id):
+    v = Video.query.get(video_id)
+    if v:
+        p = v.produto
+        db.session.delete(v)
+        db.session.delete(p)
+        db.session.commit()
+        return jsonify({"status": "sucesso"})
+    return jsonify({"status": "erro"}), 404
 
