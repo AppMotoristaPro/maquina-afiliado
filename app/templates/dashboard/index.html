@@ -2,135 +2,80 @@
 {% block content %}
 
 <div class="flex justify-center gap-4 mb-8">
-    <button class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md transition">Mercado Livre</button>
-    <button class="bg-slate-200 text-slate-400 px-6 py-2 rounded-lg font-bold cursor-not-allowed flex items-center gap-2" disabled>
-        Shopee <span class="bg-slate-300 text-slate-500 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">Em breve</span>
-    </button>
+    <button id="btnAbaML" onclick="mudarAba('ml')" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md transition">Mercado Livre</button>
+    <button id="btnAbaSH" onclick="mudarAba('shopee')" class="bg-slate-200 text-slate-500 px-6 py-2 rounded-lg font-bold transition">Shopee</button>
 </div>
 
 <div class="flex flex-col items-center mb-8" id="painel-garimpo">
     <h1 class="text-3xl font-extrabold text-slate-800 mb-2">Máquina de Comissão</h1>
-    <p class="text-slate-500 mb-6 text-center max-w-lg">O sistema trará os itens mais quentes ou você pode buscar um link direto abaixo.</p>
     
     <div class="flex gap-2 w-full max-w-lg mb-6">
-        <input type="text" id="urlDireta" placeholder="Cole o link do Mercado Livre aqui..." class="flex-1 p-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition">
-        <button onclick="buscarPorUrl()" id="btnUrl" class="bg-slate-800 hover:bg-slate-900 text-white px-6 rounded-xl font-bold transition shadow-md whitespace-nowrap">
-            Buscar Item
-        </button>
+        <input type="text" id="urlDireta" placeholder="Link direto do Mercado Livre..." class="flex-1 p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-200 outline-none">
+        <button onclick="buscarPorUrl()" class="bg-slate-800 text-white px-6 rounded-xl font-bold">Buscar</button>
     </div>
 
-    <div class="flex items-center gap-4 w-full max-w-lg">
-        <div class="h-px bg-slate-300 flex-1"></div>
-        <span class="text-slate-400 text-sm font-bold uppercase">Ou</span>
-        <div class="h-px bg-slate-300 flex-1"></div>
-    </div>
-    
-    <button onclick="buscar()" id="btnGarimpar" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-blue-600/30 transition transform hover:scale-105 text-lg w-full max-w-lg">
-        🎲 GARIMPAR PRODUTOS AGORA
+    <button onclick="buscar()" id="btnGarimpar" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg transition transform hover:scale-105 w-full max-w-lg">
+        🎲 GARIMPAR AGORA
     </button>
 </div>
 
-<div id="progresso-container" class="hidden w-full max-w-xl mx-auto mb-10 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+<div id="progresso-container" class="hidden w-full max-w-xl mx-auto mb-10 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
     <div class="flex justify-between mb-2">
       <span id="progresso-msg" class="text-sm font-bold text-blue-700">Aguardando...</span>
       <span id="progresso-pct" class="text-sm font-bold text-blue-700">0%</span>
     </div>
     <div class="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
-      <div id="progresso-bar" class="bg-gradient-to-r from-blue-500 to-indigo-600 h-4 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+      <div id="progresso-bar" class="bg-blue-600 h-4 rounded-full transition-all duration-700" style="width: 0%"></div>
     </div>
 </div>
 
 <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6"></div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const vitrineSalva = JSON.parse(localStorage.getItem('vitrineML')) || [];
-        if(vitrineSalva.length > 0) renderGrid(vitrineSalva);
-    });
+    let marketplaceAtual = 'ml';
 
-    function setBarraProgresso(mostrar, percent, msg) {
-        const container = document.getElementById('progresso-container');
-        mostrar ? container.classList.remove('hidden') : container.classList.add('hidden');
-        document.getElementById('progresso-bar').style.width = percent + '%';
-        document.getElementById('progresso-pct').innerText = percent + '%';
+    function mudarAba(mp) {
+        marketplaceAtual = mp;
+        const btnML = document.getElementById('btnAbaML');
+        const btnSH = document.getElementById('btnAbaSH');
+        const btnGarimpar = document.getElementById('btnGarimpar');
+        
+        if(mp === 'shopee') {
+            btnSH.className = "bg-orange-500 text-white px-6 py-2 rounded-lg font-bold shadow-md transition";
+            btnML.className = "bg-slate-200 text-slate-500 px-6 py-2 rounded-lg font-bold transition";
+            btnGarimpar.className = btnGarimpar.className.replace('blue', 'orange');
+        } else {
+            btnML.className = "bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md transition";
+            btnSH.className = "bg-slate-200 text-slate-500 px-6 py-2 rounded-lg font-bold transition";
+            btnGarimpar.className = btnGarimpar.className.replace('orange', 'blue');
+        }
+    }
+
+    function setBarra(mostrar, pct, msg) {
+        document.getElementById('progresso-container').classList.toggle('hidden', !mostrar);
+        document.getElementById('progresso-bar').style.width = pct + '%';
+        document.getElementById('progresso-pct').innerText = pct + '%';
         document.getElementById('progresso-msg').innerText = msg;
     }
 
-    async function buscarPorUrl() {
-        const urlInput = document.getElementById('urlDireta');
-        const url = urlInput.value.trim();
-        if(!url) return alert("Cole um link válido do Mercado Livre.");
-
-        document.getElementById('grid').innerHTML = '';
-        setBarraProgresso(true, 50, "Extraindo dados do link...");
-        
-        try {
-            const res = await fetch('/api/garimpar/url', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({url: url})
-            });
-            const data = await res.json();
-            
-            if(data.length > 0) {
-                setBarraProgresso(true, 100, "Produto encontrado!");
-                urlInput.value = ''; // Limpa o campo
-                setTimeout(() => { setBarraProgresso(false, 0, ""); renderGrid(data); }, 800);
-            } else {
-                setBarraProgresso(true, 100, "Erro: Produto não encontrado ou sem imagens.");
-                setTimeout(() => setBarraProgresso(false, 0, ""), 2000);
-            }
-        } catch(e) {
-            setBarraProgresso(true, 100, "Erro ao processar o link.");
-            setTimeout(() => setBarraProgresso(false, 0, ""), 2000);
-        }
-    }
-
     async function buscar() {
-        const btn = document.getElementById('btnGarimpar');
-        btn.disabled = true;
-        
         document.getElementById('grid').innerHTML = '';
-        setBarraProgresso(true, 15, "Aspirando vitrines do Mercado Livre...");
+        setBarra(true, 15, `Minerando ${marketplaceAtual.toUpperCase()}...`);
         
-        let simulador = 15;
-        const fakeInterval = setInterval(() => {
-            if(simulador < 85) {
-                simulador += 5;
-                setBarraProgresso(true, simulador, "Analisando ofertas e pulando itens repetidos...");
-            }
-        }, 1000);
+        let urlsVistas = JSON.parse(localStorage.getItem('urlsVistas')) || [];
 
-        try {
-            // Puxa do navegador os links que você já viu para não repetir
-            let urlsVistas = JSON.parse(localStorage.getItem('urlsVistas')) || [];
-
-            const res = await fetch('/api/garimpar', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({urls_vistas: urlsVistas})
-            });
-            const data = await res.json();
-            
-            clearInterval(fakeInterval);
-            setBarraProgresso(true, 100, "Garimpo Concluído!");
-            
-            // Adiciona os novos produtos à lista de "Já Vistos" para sumirem no futuro
-            data.forEach(item => urlsVistas.push(item.url));
-            localStorage.setItem('urlsVistas', JSON.stringify(urlsVistas));
-            localStorage.setItem('vitrineML', JSON.stringify(data));
-            
-            setTimeout(() => {
-                setBarraProgresso(false, 0, "");
-                renderGrid(data);
-            }, 1000);
-            
-        } catch (e) {
-            clearInterval(fakeInterval);
-            setBarraProgresso(true, 100, "Erro ao conectar com o Mercado Livre.");
-        }
+        const res = await fetch('/api/garimpar', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({urls_vistas: urlsVistas, marketplace: marketplaceAtual})
+        });
+        const data = await res.json();
         
-        btn.disabled = false;
+        setBarra(true, 100, "Garimpo Concluído!");
+        data.forEach(item => urlsVistas.push(item.url));
+        localStorage.setItem('urlsVistas', JSON.stringify(urlsVistas));
+        
+        setTimeout(() => { setBarra(false, 0, ""); renderGrid(data); }, 800);
     }
 
     function renderGrid(data) {
@@ -138,49 +83,37 @@
         grid.innerHTML = '';
         data.forEach(p => {
             grid.innerHTML += `
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-all overflow-hidden flex flex-col">
-                <a href="${p.url}" target="_blank" class="block h-48 bg-slate-50 p-4 flex items-center justify-center group relative">
-                    <span class="absolute top-2 right-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition">VER ANÚNCIO</span>
-                    <img src="${p.imagens[0]}" class="max-h-full max-w-full object-contain mix-blend-multiply">
-                </a>
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                <div class="h-40 bg-slate-50 p-4 flex items-center justify-center">
+                    <img src="${p.imagens[0]}" class="max-h-full object-contain mix-blend-multiply">
+                </div>
                 <div class="p-4 flex-grow flex flex-col">
-                    <h3 class="text-xs font-bold text-slate-700 line-clamp-2 mb-2">${p.titulo}</h3>
-                    <p class="text-blue-600 font-black text-base">R$ ${p.preco.toFixed(2).replace('.', ',')}</p>
-                    <button onclick='gerar(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-bold mt-4 transition shadow-md">CRIAR REELS</button>
+                    <h3 class="text-[11px] font-bold text-slate-700 line-clamp-2 mb-2">${p.titulo}</h3>
+                    <p class="text-blue-600 font-black text-sm">R$ ${p.preco.toFixed(2).replace('.', ',')}</p>
+                    <button onclick='gerar(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="w-full bg-slate-800 text-white py-2 rounded-lg text-[10px] font-bold mt-4">CRIAR REELS</button>
                 </div>
             </div>`;
         });
     }
 
     async function gerar(p) {
-        const link = prompt("PASSO 2:\nCole seu link de afiliado oficial (meli.la) para:\n" + p.titulo.substring(0, 30) + "...");
+        const link = prompt("Cole seu link de afiliado:");
         if(!link) return;
-
         document.getElementById('grid').innerHTML = '';
         document.getElementById('painel-garimpo').classList.add('hidden');
-        
-        setBarraProgresso(true, 5, "Iniciando processo...");
+        setBarra(true, 5, "Iniciando...");
 
-        let salvos = JSON.parse(localStorage.getItem('vitrineML')) || [];
-        salvos = salvos.filter(item => item.url !== p.url);
-        localStorage.setItem('vitrineML', JSON.stringify(salvos));
-        
-        await fetch('/api/produzir', {
+        fetch('/api/produzir', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({...p, link_afiliado: link})
+            body: JSON.stringify({...p, link_afiliado: link, plataforma: marketplaceAtual})
         });
 
-        const interval = setInterval(async () => {
+        const intv = setInterval(async () => {
             const r = await fetch('/api/progresso');
             const d = await r.json();
-            
-            setBarraProgresso(true, d.percent, d.msg);
-            
-            if(d.msg === "VÍDEO PRONTO") {
-                clearInterval(interval);
-                window.location.href = '/video';
-            }
+            setBarra(true, d.percent, d.msg);
+            if(d.msg.includes("PRONTO")) { clearInterval(intv); window.location.href = '/video'; }
         }, 1500);
     }
 </script>
