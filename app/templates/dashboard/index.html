@@ -2,7 +2,7 @@
 {% block content %}
 
 <div class="flex justify-center gap-4 mb-8">
-    <button class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md transition transform hover:-translate-y-1">Mercado Livre</button>
+    <button class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md transition">Mercado Livre</button>
     <button class="bg-slate-200 text-slate-400 px-6 py-2 rounded-lg font-bold cursor-not-allowed flex items-center gap-2" disabled>
         Shopee <span class="bg-slate-300 text-slate-500 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">Em breve</span>
     </button>
@@ -10,9 +10,22 @@
 
 <div class="flex flex-col items-center mb-8" id="painel-garimpo">
     <h1 class="text-3xl font-extrabold text-slate-800 mb-2">Máquina de Comissão</h1>
-    <p class="text-slate-500 mb-6 text-center max-w-lg">O sistema trará os itens mais quentes. Clique na imagem para ver no Mercado Livre e pegar seu link.</p>
+    <p class="text-slate-500 mb-6 text-center max-w-lg">O sistema trará os itens mais quentes ou você pode buscar um link direto abaixo.</p>
     
-    <button onclick="buscar()" id="btnGarimpar" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-blue-600/30 transition transform hover:scale-105 text-lg">
+    <div class="flex gap-2 w-full max-w-lg mb-6">
+        <input type="text" id="urlDireta" placeholder="Cole o link do Mercado Livre aqui..." class="flex-1 p-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition">
+        <button onclick="buscarPorUrl()" id="btnUrl" class="bg-slate-800 hover:bg-slate-900 text-white px-6 rounded-xl font-bold transition shadow-md whitespace-nowrap">
+            Buscar Item
+        </button>
+    </div>
+
+    <div class="flex items-center gap-4 w-full max-w-lg">
+        <div class="h-px bg-slate-300 flex-1"></div>
+        <span class="text-slate-400 text-sm font-bold uppercase">Ou</span>
+        <div class="h-px bg-slate-300 flex-1"></div>
+    </div>
+    
+    <button onclick="buscar()" id="btnGarimpar" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-blue-600/30 transition transform hover:scale-105 text-lg w-full max-w-lg">
         🎲 GARIMPAR PRODUTOS AGORA
     </button>
 </div>
@@ -37,14 +50,40 @@
 
     function setBarraProgresso(mostrar, percent, msg) {
         const container = document.getElementById('progresso-container');
-        if(mostrar) {
-            container.classList.remove('hidden');
-        } else {
-            container.classList.add('hidden');
-        }
+        mostrar ? container.classList.remove('hidden') : container.classList.add('hidden');
         document.getElementById('progresso-bar').style.width = percent + '%';
         document.getElementById('progresso-pct').innerText = percent + '%';
         document.getElementById('progresso-msg').innerText = msg;
+    }
+
+    async function buscarPorUrl() {
+        const urlInput = document.getElementById('urlDireta');
+        const url = urlInput.value.trim();
+        if(!url) return alert("Cole um link válido do Mercado Livre.");
+
+        document.getElementById('grid').innerHTML = '';
+        setBarraProgresso(true, 50, "Extraindo dados do link...");
+        
+        try {
+            const res = await fetch('/api/garimpar/url', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({url: url})
+            });
+            const data = await res.json();
+            
+            if(data.length > 0) {
+                setBarraProgresso(true, 100, "Produto encontrado!");
+                urlInput.value = ''; // Limpa o campo
+                setTimeout(() => { setBarraProgresso(false, 0, ""); renderGrid(data); }, 800);
+            } else {
+                setBarraProgresso(true, 100, "Erro: Produto não encontrado ou sem imagens.");
+                setTimeout(() => setBarraProgresso(false, 0, ""), 2000);
+            }
+        } catch(e) {
+            setBarraProgresso(true, 100, "Erro ao processar o link.");
+            setTimeout(() => setBarraProgresso(false, 0, ""), 2000);
+        }
     }
 
     async function buscar() {
@@ -58,17 +97,27 @@
         const fakeInterval = setInterval(() => {
             if(simulador < 85) {
                 simulador += 5;
-                setBarraProgresso(true, simulador, "Analisando ofertas e filtrando imagens...");
+                setBarraProgresso(true, simulador, "Analisando ofertas e pulando itens repetidos...");
             }
         }, 1000);
 
         try {
-            const res = await fetch('/api/garimpar');
+            // Puxa do navegador os links que você já viu para não repetir
+            let urlsVistas = JSON.parse(localStorage.getItem('urlsVistas')) || [];
+
+            const res = await fetch('/api/garimpar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({urls_vistas: urlsVistas})
+            });
             const data = await res.json();
             
             clearInterval(fakeInterval);
             setBarraProgresso(true, 100, "Garimpo Concluído!");
             
+            // Adiciona os novos produtos à lista de "Já Vistos" para sumirem no futuro
+            data.forEach(item => urlsVistas.push(item.url));
+            localStorage.setItem('urlsVistas', JSON.stringify(urlsVistas));
             localStorage.setItem('vitrineML', JSON.stringify(data));
             
             setTimeout(() => {
@@ -90,20 +139,14 @@
         data.forEach(p => {
             grid.innerHTML += `
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-all overflow-hidden flex flex-col">
-                <a href="${p.url}" target="_blank" class="block cursor-pointer group" title="Abrir no Mercado Livre">
-                    <div class="h-48 bg-slate-50 p-4 flex items-center justify-center relative">
-                        <span class="absolute top-2 right-2 bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition">Ver no ML</span>
-                        <img src="${p.imagens[0]}" class="max-h-full max-w-full object-contain mix-blend-multiply">
-                    </div>
-                    <div class="p-4 flex-grow">
-                        <h3 class="text-sm font-bold text-slate-700 line-clamp-2 group-hover:text-blue-600 transition">${p.titulo}</h3>
-                        <p class="text-emerald-600 font-extrabold text-lg mt-2">R$ ${p.preco.toFixed(2).replace('.', ',')}</p>
-                    </div>
+                <a href="${p.url}" target="_blank" class="block h-48 bg-slate-50 p-4 flex items-center justify-center group relative">
+                    <span class="absolute top-2 right-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition">VER ANÚNCIO</span>
+                    <img src="${p.imagens[0]}" class="max-h-full max-w-full object-contain mix-blend-multiply">
                 </a>
-                <div class="p-4 pt-0 mt-auto">
-                    <button onclick='gerar(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg text-sm font-bold shadow-md transition">
-                        CRIAR REELS
-                    </button>
+                <div class="p-4 flex-grow flex flex-col">
+                    <h3 class="text-xs font-bold text-slate-700 line-clamp-2 mb-2">${p.titulo}</h3>
+                    <p class="text-blue-600 font-black text-base">R$ ${p.preco.toFixed(2).replace('.', ',')}</p>
+                    <button onclick='gerar(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-bold mt-4 transition shadow-md">CRIAR REELS</button>
                 </div>
             </div>`;
         });

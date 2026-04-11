@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app
-from app.services.mineracao_service import garimpar_produtos
+from app.services.mineracao_service import garimpar_produtos, garimpar_por_url
 from app.services.locucao_service import executar_locucao
 from app.services.video_service import renderizar_video
 from app.models.produto import Produto
@@ -13,9 +13,19 @@ def set_progresso(percent, msg):
     with open("progress.json", "w", encoding="utf-8") as f:
         json.dump({"percent": percent, "msg": msg}, f)
 
-@api_bp.route('/garimpar')
+# Agora é POST para poder receber a lista de itens já vistos
+@api_bp.route('/garimpar', methods=['POST'])
 def api_garimpar():
-    return jsonify(garimpar_produtos())
+    data = request.json or {}
+    urls_vistas = data.get('urls_vistas', [])
+    return jsonify(garimpar_produtos(urls_vistas))
+
+# NOVA ROTA: Buscar produto por URL exata
+@api_bp.route('/garimpar/url', methods=['POST'])
+def api_garimpar_url():
+    data = request.json
+    url = data.get('url')
+    return jsonify(garimpar_por_url(url))
 
 @api_bp.route('/produzir', methods=['POST'])
 def api_produzir():
@@ -24,20 +34,15 @@ def api_produzir():
     
     set_progresso(5, "Iniciando Máquina de Comissão...")
     
-    produto = Produto(
-        titulo=data['titulo'], preco=data['preco'], url_original=data['url'], imagens_json=json.dumps(data['imagens'])
-    )
+    produto = Produto(titulo=data['titulo'], preco=data['preco'], url_original=data['url'], imagens_json=json.dumps(data['imagens']))
     db.session.add(produto)
     db.session.commit()
 
-    # --- GERADOR DE HASHTAGS DINÂMICAS ---
-    # Limpa o título (tira acentos/símbolos) e pega as primeiras 3 palavras maiores que 2 letras
     palavras_limpas = re.sub(r'[^a-zA-Z0-9 ]', '', data['titulo']).split()
     tags_dinamicas = " ".join([f"#{p.lower()}" for p in palavras_limpas[:3] if len(p) > 2])
-    
     bloco_hashtags = f"\n\n{tags_dinamicas} #achadinhos #mercadolivre #promocao #oferta #tendencia"
 
-    copy_gerada = f"🚨 Achado imperdível!\n\n{data['titulo']}\n\nDeixe um 'EU QUERO' nos comentários que te envio o link no Direct!\n\n🔗 Link: {link_afiliado}{bloco_hashtags}"
+    copy_gerada = f"🚨 Achado imperdível!\n\n{data['titulo']}\n\nDeixe um 'EU QUERO' nos comentários que te envio o link no Direct!\n\n🔗 Link na Bio: {link_afiliado}{bloco_hashtags}"
     
     video = Video(produto_id=produto.id, link_afiliado=link_afiliado, copy_gerada=copy_gerada, status='processando')
     db.session.add(video)
@@ -50,10 +55,7 @@ def api_produzir():
         with app.app_context():
             try:
                 set_progresso(15, "Gerando locução persuasiva...")
-                # Agora retorna apenas o caminho do áudio
                 audio = executar_locucao(p_data['titulo'], p_data['preco'])
-                
-                # Renderiza enviando apenas as imagens, áudio e a função de progresso
                 caminho_final = renderizar_video(p_data['imagens'], audio, set_progresso)
                 
                 v = Video.query.get(v_id)
