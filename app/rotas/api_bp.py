@@ -20,8 +20,9 @@ def api_garimpar():
     urls_vistas = data.get('urls_vistas', [])
     marketplace = data.get('marketplace', 'ml')
     
+    # O garimpo automático continua funcionando apenas para o Mercado Livre
     if marketplace == 'shopee':
-        return jsonify(garimpar_shopee(urls_vistas))
+        return jsonify([]) 
     return jsonify(garimpar_produtos(urls_vistas))
 
 @api_bp.route('/garimpar/url', methods=['POST'])
@@ -29,7 +30,7 @@ def api_garimpar_url():
     data = request.json
     url = data.get('url', '')
     
-    # Roteamento Inteligente: Verifica de qual site é o link colado
+    # Roteamento Inteligente: Identifica o marketplace pelo link
     if 'shopee.com' in url:
         return jsonify(garimpar_shopee_url(url))
     else:
@@ -53,10 +54,12 @@ def api_produzir():
     db.session.add(produto)
     db.session.commit()
 
+    # Hashtags Dinâmicas
     palavras = re.sub(r'[^a-zA-Z0-9 ]', '', data['titulo']).split()
     tags = " ".join([f"#{p.lower()}" for p in palavras[:3] if len(p) > 2])
     bloco_tags = f"\n\n{tags} #achadinhos #{'shopee' if plataforma == 'shopee' else 'mercadolivre'} #promocao"
 
+    # Copy com CTA Triplo (Bio, Descrição, Comentário)
     copy = f"🚨 Achado imperdível!\n\n{data['titulo']}\n\nDeixe um 'EU QUERO' nos comentários que te envio o link no Direct!\n\n🔗 Link na Bio: {link_afiliado}{bloco_tags}"
     
     video = Video(produto_id=produto.id, link_afiliado=link_afiliado, copy_gerada=copy, status='processando')
@@ -70,6 +73,7 @@ def api_produzir():
             try:
                 set_progresso(20, "Gerando voz do Antonio...")
                 audio = executar_locucao(p_data['titulo'], p_data['preco'])
+                # Renderiza o vídeo usando a voz masculina e sem legendas para velocidade
                 caminho = renderizar_video(p_data['imagens'], audio, set_progresso)
                 
                 v = Video.query.get(v_id)
@@ -91,15 +95,4 @@ def api_progresso():
         with open("progress.json", "r", encoding="utf-8") as f:
             return jsonify(json.load(f))
     except: return jsonify({"percent": 0, "msg": "Aguardando..."})
-    
-@api_bp.route('/historico/<int:video_id>', methods=['DELETE'])
-def deletar_historico(video_id):
-    v = Video.query.get(video_id)
-    if v:
-        p = v.produto
-        db.session.delete(v)
-        db.session.delete(p)
-        db.session.commit()
-        return jsonify({"status": "sucesso"})
-    return jsonify({"status": "erro"}), 404
 
