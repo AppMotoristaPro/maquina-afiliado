@@ -14,14 +14,43 @@
     </a>
     
     <div class="w-full bg-white border border-slate-200 p-6 rounded-2xl mb-8 shadow-sm">
-        <h4 class="text-blue-600 font-bold mb-3 flex items-center gap-2">
-            📝 Sua Copy (Instagram/TikTok)
-        </h4>
-        <textarea class="w-full h-48 bg-slate-50 text-slate-700 border border-slate-200 rounded-xl p-4 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" readonly>{{ video.copy_gerada if video else 'Nenhuma copy encontrada no banco de dados.' }}</textarea>
+        <div class="flex justify-between items-center mb-3">
+            <h4 class="text-blue-600 font-bold flex items-center gap-2">📝 Sua Copy (Instagram/TikTok)</h4>
+            <button onclick="copiarTexto()" id="btnCopiar" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-bold transition-all shadow-sm">
+                Copiar Tudo
+            </button>
+        </div>
+        
+        <textarea id="copyTexto" class="w-full h-48 bg-slate-50 text-slate-700 border border-slate-200 rounded-xl p-4 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" readonly>{{ video.copy_gerada if video else 'Nenhuma copy encontrada no banco de dados.' }}</textarea>
     </div>
     
     <a href="/" class="text-slate-500 hover:text-blue-600 font-semibold transition pb-10">← Voltar para a Vitrine</a>
 </div>
 
+<script>
+    function copiarTexto() {
+        const textarea = document.getElementById("copyTexto");
+        textarea.select();
+        textarea.setSelectionRange(0, 99999); // Para suportar no mobile
+        
+        navigator.clipboard.writeText(textarea.value).then(() => {
+            const btn = document.getElementById("btnCopiar");
+            btn.innerText = "Copiado! ✔️";
+            btn.classList.replace("bg-blue-100", "bg-emerald-100");
+            btn.classList.replace("text-blue-700", "text-emerald-700");
+            btn.classList.replace("hover:bg-blue-200", "hover:bg-emerald-200");
+            
+            // Retorna ao estado normal após 2 segundos
+            setTimeout(() => {
+                btn.innerText = "Copiar Tudo";
+                btn.classList.replace("bg-emerald-100", "bg-blue-100");
+                btn.classList.replace("text-emerald-700", "text-blue-700");
+                btn.classList.replace("hover:bg-emerald-200", "hover:bg-blue-200");
+            }, 2500);
+        }).catch(err => {
+            alert("Erro ao copiar. Tente copiar manualmente.");
+        });
+    }
+</script>
 {% endblock %}
 

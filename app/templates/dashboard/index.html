@@ -9,8 +9,8 @@
 </div>
 
 <div class="flex flex-col items-center mb-8" id="painel-garimpo">
-    <h1 class="text-3xl font-extrabold text-slate-800 mb-2">Garimpo Automático</h1>
-    <p class="text-slate-500 mb-6 text-center max-w-lg">O sistema trará os itens mais quentes de várias categorias. Clique na imagem para ver no Mercado Livre e pegar seu link.</p>
+    <h1 class="text-3xl font-extrabold text-slate-800 mb-2">Máquina de Comissão</h1>
+    <p class="text-slate-500 mb-6 text-center max-w-lg">O sistema trará os itens mais quentes. Clique na imagem para ver no Mercado Livre e pegar seu link.</p>
     
     <button onclick="buscar()" id="btnGarimpar" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-blue-600/30 transition transform hover:scale-105 text-lg">
         🎲 GARIMPAR PRODUTOS AGORA
@@ -35,7 +35,6 @@
         if(vitrineSalva.length > 0) renderGrid(vitrineSalva);
     });
 
-    // Função auxiliar para controlar a barra no frontend
     function setBarraProgresso(mostrar, percent, msg) {
         const container = document.getElementById('progresso-container');
         if(mostrar) {
@@ -52,16 +51,14 @@
         const btn = document.getElementById('btnGarimpar');
         btn.disabled = true;
         
-        // Esconde os produtos velhos e mostra a barra
         document.getElementById('grid').innerHTML = '';
         setBarraProgresso(true, 15, "Aspirando vitrines do Mercado Livre...");
         
-        // Simulação de progresso enquanto a API não responde
         let simulador = 15;
         const fakeInterval = setInterval(() => {
             if(simulador < 85) {
                 simulador += 5;
-                setBarraProgresso(true, simulador, "Filtrando as melhores imagens...");
+                setBarraProgresso(true, simulador, "Analisando ofertas e filtrando imagens...");
             }
         }, 1000);
 
@@ -74,7 +71,6 @@
             
             localStorage.setItem('vitrineML', JSON.stringify(data));
             
-            // Dá 1 segundo pra pessoa ver o 100% e depois esconde a barra e mostra os produtos
             setTimeout(() => {
                 setBarraProgresso(false, 0, "");
                 renderGrid(data);
@@ -120,7 +116,6 @@
         document.getElementById('grid').innerHTML = '';
         document.getElementById('painel-garimpo').classList.add('hidden');
         
-        // Inicia a barra real do backend
         setBarraProgresso(true, 5, "Iniciando processo...");
 
         let salvos = JSON.parse(localStorage.getItem('vitrineML')) || [];
@@ -133,7 +128,6 @@
             body: JSON.stringify({...p, link_afiliado: link})
         });
 
-        // Polling da barra de progresso (Ligado ao Backend)
         const interval = setInterval(async () => {
             const r = await fetch('/api/progresso');
             const d = await r.json();

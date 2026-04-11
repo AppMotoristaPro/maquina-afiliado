@@ -5,7 +5,7 @@ from app.services.video_service import renderizar_video
 from app.models.produto import Produto
 from app.models.video import Video
 from app.extensions import db
-import threading, json, os
+import threading, json, os, re
 
 api_bp = Blueprint('api', __name__)
 
@@ -30,7 +30,15 @@ def api_produzir():
     db.session.add(produto)
     db.session.commit()
 
-    copy_gerada = f"🚨 Achado imperdível!\n\n{data['titulo']}\n\nDeixe um 'EU QUERO' nos comentários que te envio o link no Direct!\n\n🔗 Link: {link_afiliado}"
+    # --- GERADOR DE HASHTAGS DINÂMICAS ---
+    # Limpa o título (tira acentos/símbolos) e pega as primeiras 3 palavras maiores que 2 letras
+    palavras_limpas = re.sub(r'[^a-zA-Z0-9 ]', '', data['titulo']).split()
+    tags_dinamicas = " ".join([f"#{p.lower()}" for p in palavras_limpas[:3] if len(p) > 2])
+    
+    bloco_hashtags = f"\n\n{tags_dinamicas} #achadinhos #mercadolivre #promocao #oferta #tendencia"
+
+    copy_gerada = f"🚨 Achado imperdível!\n\n{data['titulo']}\n\nDeixe um 'EU QUERO' nos comentários que te envio o link no Direct!\n\n🔗 Link: {link_afiliado}{bloco_hashtags}"
+    
     video = Video(produto_id=produto.id, link_afiliado=link_afiliado, copy_gerada=copy_gerada, status='processando')
     db.session.add(video)
     db.session.commit()
@@ -42,9 +50,11 @@ def api_produzir():
         with app.app_context():
             try:
                 set_progresso(15, "Gerando locução persuasiva...")
-                audio, vtt_legenda = executar_locucao(p_data['titulo'], p_data['preco'])
+                # Agora retorna apenas o caminho do áudio
+                audio = executar_locucao(p_data['titulo'], p_data['preco'])
                 
-                caminho_final = renderizar_video(p_data['imagens'], audio, vtt_legenda, set_progresso)
+                # Renderiza enviando apenas as imagens, áudio e a função de progresso
+                caminho_final = renderizar_video(p_data['imagens'], audio, set_progresso)
                 
                 v = Video.query.get(v_id)
                 v.status = 'concluido'
